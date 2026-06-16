@@ -14,8 +14,15 @@ no SEO bloat, no framework.
 | Full-text edition | `/llms-full.txt` |
 | Markdown delivery | `/<slug>.md` or `Accept: text/markdown` |
 | Structured data | JSON-LD `WebSite` + `Person`/`Organization` + `BlogPosting` + `BreadcrumbList` (defers to SEO plugins) |
+| XML sitemap | `/agentify-sitemap.xml` — opt-in fallback, generated **only** when neither WordPress core nor an SEO plugin already provides one (sitemap index + paginated sub-sitemaps) |
 | Crawler policy | `robots.txt` content-signal + training-crawler blocklist |
-| Readiness report | Admin screen, pass/warn/fail checks |
+| Discovery layer | `/.well-known/discovery.json` (+ `agent-card.json`, `mcp.json`) |
+
+## In the admin
+
+- **Readiness report** — pass/warn/fail checks, each with a plain-English suggestion and a deep link to the fix (including a "sitemap advertised in robots.txt" check).
+- **Agent activity log** — a local-only dashboard (no IP logged) of which AI agents and crawlers fetch your endpoints; repeat hits are grouped with a count, newest first.
+- **Factory reset** — one click restores every setting to its recommended defaults, with a preview of exactly what will change.
 
 ## Architecture
 
