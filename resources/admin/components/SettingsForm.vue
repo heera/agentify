@@ -15,7 +15,7 @@ export default {
   },
   emits: ['save'],
   data() {
-    return { typeQuery: '' };
+    return { typeQuery: '', nsQuery: '' };
   },
   computed: {
     filteredPostTypes() {
@@ -105,6 +105,11 @@ export default {
     publishedNsCount() {
       const sel = Array.isArray(this.settings.rest_namespaces) ? this.settings.rest_namespaces : [];
       return this.restNamespacesDetected.filter((ns) => sel.includes(ns)).length;
+    },
+    filteredNamespaces() {
+      const q = this.nsQuery.trim().toLowerCase();
+      if (!q) return this.restNamespacesDetected;
+      return this.restNamespacesDetected.filter((ns) => ns.toLowerCase().includes(q));
     },
   },
   methods: {
@@ -197,7 +202,7 @@ export default {
       </div>
 
       <div class="ar-field">
-        <label>sameAs profiles</label>
+        <label>Profile URLs</label>
         <TagInput v-model="identity.same_as" placeholder="https://github.com/you" />
         <small class="ar-field__hint">
           Public profile URLs (GitHub, LinkedIn, X…) that help agents resolve your entity.
@@ -341,12 +346,19 @@ export default {
         APIs (analytics, telemetry, admin) are best left off. Nothing is published unless you tick it.
       </p>
       <div class="ar-types-bar">
+        <input
+          v-if="restNamespacesDetected.length > 8"
+          v-model="nsQuery"
+          type="search"
+          class="ar-input ar-types-search"
+          placeholder="Filter APIs…"
+        />
         <span class="ar-types-count">{{ publishedNsCount }} / {{ restNamespacesDetected.length }} published</span>
       </div>
       <div class="ar-types-scroll">
         <div class="ar-types-grid">
           <label
-            v-for="ns in restNamespacesDetected"
+            v-for="ns in filteredNamespaces"
             :key="ns"
             class="ar-type"
             :class="{ 'is-on': isNsOn(ns) }"
@@ -358,6 +370,7 @@ export default {
               <span class="ar-type__meta"><code>/wp-json/{{ ns }}</code></span>
             </span>
           </label>
+          <p v-if="!filteredNamespaces.length" class="ar-types-empty">No APIs match “{{ nsQuery }}”.</p>
         </div>
       </div>
     </section>
