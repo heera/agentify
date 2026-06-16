@@ -32,6 +32,18 @@ final class Recorder {
 			return;
 		}
 
+		/**
+		 * Skip logging the site owner inspecting their own endpoints — a logged-in
+		 * administrator opening discovery.json in a browser is not agent traffic and
+		 * would otherwise bury the log in "Browser" self-noise. Filter to false to
+		 * log every request regardless.
+		 *
+		 * @param bool $skip Whether to skip this request. Default true for admins.
+		 */
+		if ( apply_filters( 'agentify_activity_skip_self', is_user_logged_in() && current_user_can( 'manage_options' ) ) ) {
+			return;
+		}
+
 		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification -- read-only logging of a public endpoint hit.
 
 		global $wpdb;

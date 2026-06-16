@@ -60,20 +60,29 @@ final class Classifier {
 	 */
 	public static function classify( $ua ) {
 		$ua = strtolower( (string) $ua );
+		// No User-Agent at all — distinct from an unrecognized one, and worth
+		// naming as such rather than hiding it under a vague "Unknown".
 		if ( '' === $ua ) {
-			return 'Unknown';
+			return 'No user-agent';
 		}
 		foreach ( self::map() as $token => $label ) {
 			if ( false !== strpos( $ua, $token ) ) {
 				return $label;
 			}
 		}
+		// A self-declared crawler we don't have a friendly name for.
 		if ( preg_match( '/bot|crawler|spider|crawl/', $ua ) ) {
 			return 'Other bot';
+		}
+		// HTTP client libraries / command-line tools — scripts, not agents
+		// (curl, wget, Python requests, Node fetch, Go, Java, Postman, …).
+		if ( preg_match( '#curl|wget|python|node-fetch|\bnode\b|go-http|okhttp|libwww|postman|httpie|axios|guzzle|java/|ruby|^php#', $ua ) ) {
+			return 'Script/tool';
 		}
 		if ( false !== strpos( $ua, 'mozilla' ) ) {
 			return 'Browser';
 		}
-		return 'Unknown';
+		// Non-empty, but matches nothing above.
+		return 'Unidentified';
 	}
 }
