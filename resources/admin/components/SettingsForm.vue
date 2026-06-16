@@ -11,9 +11,11 @@ export default {
     knownTrainers: { type: Array, default: () => [] },
     endpoints: { type: Object, default: () => ({}) },
     restNamespacesDetected: { type: Array, default: () => [] },
-    saving: { type: Boolean, default: false },
+    profileDirty: { type: Boolean, default: false },
+    profileSaving: { type: Boolean, default: false },
+    profileSaved: { type: Boolean, default: false },
   },
-  emits: ['save'],
+  emits: ['save-profile'],
   data() {
     return { typeQuery: '', nsQuery: '' };
   },
@@ -151,13 +153,15 @@ export default {
 </script>
 
 <template>
-  <form class="ar-form" @submit.prevent="$emit('save')">
+  <form class="ar-form" @submit.prevent="$emit('save-profile')">
     <!-- Identity ------------------------------------------------------- -->
     <section class="ar-card">
       <h2 class="ar-card__title">Identity</h2>
       <p class="ar-card__lead">The highest-signal data an agent reads — who owns this site and what it's about.</p>
 
-      <div class="ar-grid">
+      <!-- Compose-and-save block: free text you compose, then commit with Save. -->
+      <div class="ar-id-block">
+        <div class="ar-grid">
         <div class="ar-field">
           <label for="ar-type">Entity type</label>
           <select id="ar-type" v-model="identity.entity_type" class="ar-input">
@@ -195,17 +199,28 @@ export default {
         </small>
       </div>
 
+        <div class="ar-id-foot">
+          <span v-if="profileSaving" class="ar-id-foot__status">Saving…</span>
+          <span v-else-if="profileDirty" class="ar-id-foot__status is-dirty">Unsaved changes</span>
+          <span v-else-if="profileSaved" class="ar-id-foot__status is-saved">Saved ✓</span>
+          <span v-else class="ar-id-foot__status">Saved</span>
+          <button type="button" class="ar-btn" :disabled="profileSaving || !profileDirty" @click="$emit('save-profile')">
+            {{ profileSaving ? 'Saving…' : 'Save profile' }}
+          </button>
+        </div>
+      </div>
+
       <div class="ar-field">
         <label>{{ expertiseLabel }}</label>
         <TagInput v-model="identity.expertise" placeholder="Add a topic, press Enter" />
-        <small class="ar-field__hint">Feeds the {{ isOrg ? 'expertise' : 'Expertise' }} list and schema <code>knowsAbout</code>.</small>
+        <small class="ar-field__hint">Feeds the {{ isOrg ? 'expertise' : 'Expertise' }} list and schema <code>knowsAbout</code>. Saved as you add.</small>
       </div>
 
       <div class="ar-field">
         <label>Profile URLs</label>
         <TagInput v-model="identity.same_as" placeholder="https://github.com/you" />
         <small class="ar-field__hint">
-          Public profile URLs (GitHub, LinkedIn, X…) that help agents resolve your entity.
+          Public profile URLs (GitHub, LinkedIn, X…) that help agents resolve your entity. Saved as you add.
           <span v-if="identity.same_as.some((u) => !isUrl(u))" class="ar-warn">Some entries are not full https:// URLs.</span>
         </small>
       </div>

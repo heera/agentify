@@ -32,6 +32,9 @@ export default {
       endpoints: this.boot.endpoints || {},
       version: this.boot.version || '',
       saving: false,
+      profileSaving: false,
+      profileSaved: false,
+      autoStatus: 'idle',
       notice: null,
       ringReady: false,
       savedSnapshot: JSON.stringify(this.boot.settings || {}),
@@ -52,6 +55,29 @@ export default {
     },
     dirty() {
       return JSON.stringify(this.settings) !== this.savedSnapshot;
+    },
+    // The free-text "profile" block (entity/name/role/about/email) saves explicitly;
+    // everything else autosaves. profileDirty drives the in-card Save button.
+    profileDirty() {
+      const saved = JSON.parse(this.savedSnapshot).identity || {};
+      const cur = this.settings.identity || {};
+      return ['entity_type', 'name', 'role', 'about', 'contact_email'].some(
+        (k) => (cur[k] || '') !== (saved[k] || ''),
+      );
+    },
+    // Serializes every AUTOSAVED field (toggles, selections, chips). When this
+    // changes we debounce-autosave — without touching the unsaved profile text.
+    instantState() {
+      const s = this.settings;
+      const id = s.identity || {};
+      return JSON.stringify({
+        enable_llms_txt: s.enable_llms_txt, enable_llms_full: s.enable_llms_full,
+        enable_markdown: s.enable_markdown, enable_robots: s.enable_robots,
+        enable_schema: s.enable_schema, enable_activity: s.enable_activity,
+        llms_full_posts: s.llms_full_posts, post_types: s.post_types,
+        rest_namespaces: s.rest_namespaces, content_signal: s.content_signal,
+        blocked_trainers: s.blocked_trainers, expertise: id.expertise, same_as: id.same_as,
+      });
     },
     circumference() {
       return 2 * Math.PI * 52;
@@ -131,6 +157,11 @@ export default {
         this.refreshActivity();
       }
     },
+    instantState() {
+      // A toggle / selection / chip changed → autosave (debounced), leaving the
+      // in-progress profile text untouched (it has its own Save).
+      this.queueAutosave();
+    },
   },
   mounted() {
     window.requestAnimationFrame(() => {
@@ -162,19 +193,54 @@ export default {
         this.tab = h;
       }
     },
-    async save() {
-      this.saving = true;
-      this.notice = null;
+    // Persist the free-text profile block (entity/name/role/about/email). Sends the
+    // full settings; reflects the sanitized profile back into the live object so the
+    // form shows exactly what was stored, then briefly flashes "Saved".
+    async saveProfile() {
+      if (this.profileSaving || !this.profileDirty) {
+        return;
+      }
+      this.profileSaving = true;
       try {
         const res = await this.api.saveSettings(this.settings);
-        this.settings = res.settings;
+        const savedId = (res.settings && res.settings.identity) || {};
+        ['entity_type', 'name', 'role', 'about', 'contact_email'].forEach((k) => {
+          if (this.settings.identity) this.settings.identity[k] = savedId[k];
+        });
         this.savedSnapshot = JSON.stringify(res.settings);
         this.readiness = res.readiness || this.readiness;
-        this.flash('success', 'Settings saved.');
+        this.profileSaved = true;
+        clearTimeout(this._savedTimer);
+        this._savedTimer = setTimeout(() => { this.profileSaved = false; }, 2500);
       } catch (e) {
         this.flash('error', e.message);
       } finally {
-        this.saving = false;
+        this.profileSaving = false;
+      }
+    },
+    // Debounced autosave for toggles / selections / chips.
+    queueAutosave() {
+      clearTimeout(this._autoTimer);
+      this._autoTimer = setTimeout(() => this.autosaveInstant(), 600);
+    },
+    // Persists everything EXCEPT the in-progress profile text (frozen to its
+    // last-saved value), so composing a profile sentence is never saved until the
+    // user clicks Save. Never replaces this.settings (that would wipe the draft).
+    async autosaveInstant() {
+      const savedId = (JSON.parse(this.savedSnapshot).identity) || {};
+      const payload = JSON.parse(JSON.stringify(this.settings));
+      ['entity_type', 'name', 'role', 'about', 'contact_email'].forEach((k) => {
+        if (payload.identity) payload.identity[k] = savedId[k];
+      });
+      this.autoStatus = 'saving';
+      try {
+        const res = await this.api.saveSettings(payload);
+        this.savedSnapshot = JSON.stringify(res.settings);
+        this.readiness = res.readiness || this.readiness;
+        this.autoStatus = 'saved';
+      } catch (e) {
+        this.autoStatus = 'error';
+        this.flash('error', e.message);
       }
     },
     async refreshReadiness() {
@@ -288,8 +354,10 @@ export default {
           :known-trainers="knownTrainers"
           :endpoints="endpoints"
           :rest-namespaces-detected="restNamespacesDetected"
-          :saving="saving"
-          @save="save"
+          :profile-dirty="profileDirty"
+          :profile-saving="profileSaving"
+          :profile-saved="profileSaved"
+          @save-profile="saveProfile"
         />
         <ReadinessPanel
           v-show="tab === 'readiness'"
@@ -365,12 +433,10 @@ export default {
         </div>
 
         <div v-if="tab === 'settings'" class="ar-rail-save">
-          <p class="ar-rail-save__status" :class="{ 'is-dirty': dirty }">
-            {{ dirty ? 'Unsaved changes' : 'All changes saved' }}
+          <p class="ar-rail-save__status" :class="{ 'is-dirty': autoStatus === 'saving' || autoStatus === 'error' }">
+            {{ autoStatus === 'saving' ? 'Saving…' : autoStatus === 'error' ? 'Save failed' : 'Changes save automatically' }}
           </p>
-          <button type="button" class="ar-btn ar-btn--block" :disabled="saving || !dirty" @click="save">
-            {{ saving ? 'Saving…' : 'Save changes' }}
-          </button>
+          <p class="ar-rail-save__hint">Toggles &amp; selections save instantly. The profile block has its own Save.</p>
         </div>
       </aside>
     </main>
