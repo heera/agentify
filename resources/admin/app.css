@@ -450,14 +450,25 @@ select.ar-input {
 .ar-linkbtn:hover { color: var(--ar-ink); }
 
 /* Content types — compact, scalable selectable cards */
-.ar-types-bar { display: flex; align-items: center; gap: 14px; margin: 4px 0 12px; }
-.ar-types-search { flex: 1 1 240px; max-width: 480px; padding: 9px 13px; }
-.ar-types-count { font-family: var(--ar-mono); font-size: 11px; color: var(--ar-ink-faint); margin-left: auto; }
+/* Same grid as the cards below, so the search lines up to the columns. */
+.ar-types-bar {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+  gap: 9px; align-items: center; margin: 4px 0 14px;
+}
+.ar-types-search { grid-column: 1 / span 2; padding: 9px 13px; } /* exactly two cards wide */
+.ar-types-meta { grid-column: 3 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.ar-types-count { font-family: var(--ar-mono); font-size: 11px; color: var(--ar-ink-faint); }
 .ar-types-bar .ar-linkbtn { font-family: var(--ar-mono); font-size: 11px; text-decoration: none; }
 .ar-types-bar .ar-linkbtn:hover { text-decoration: underline; }
 
 /* Scroll only when the list gets long; small sites never scroll. */
-.ar-types-scroll { max-height: 336px; overflow-y: auto; margin: 0 -4px; padding: 2px 4px; }
+.ar-types-scroll {
+  max-height: 336px; overflow-y: auto; margin: 4px -4px 0; padding: 8px 4px;
+  /* Fade rows in/out at the edges so scrolled cards don't visually merge into
+     the filter above (or run hard against the bottom). */
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+          mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+}
 .ar-types-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 9px; }
 .ar-types-empty { grid-column: 1 / -1; margin: 6px 2px; font-size: 12.5px; color: var(--ar-ink-soft); }
 

@@ -311,8 +311,10 @@ export default {
           class="ar-input ar-types-search"
           placeholder="Filter types…"
         />
-        <span class="ar-types-count">{{ selectedTypeCount }} / {{ postTypes.length }} enabled</span>
-        <button type="button" class="ar-linkbtn" @click="selectAllTypes">Select all</button>
+        <div class="ar-types-meta">
+          <span class="ar-types-count">{{ selectedTypeCount }} / {{ postTypes.length }} enabled</span>
+          <button type="button" class="ar-linkbtn" @click="selectAllTypes">Select all</button>
+        </div>
       </div>
 
       <div class="ar-types-scroll">
@@ -353,7 +355,9 @@ export default {
           class="ar-input ar-types-search"
           placeholder="Filter APIs…"
         />
-        <span class="ar-types-count">{{ publishedNsCount }} / {{ restNamespacesDetected.length }} published</span>
+        <div class="ar-types-meta">
+          <span class="ar-types-count">{{ publishedNsCount }} / {{ restNamespacesDetected.length }} published</span>
+        </div>
       </div>
       <div class="ar-types-scroll">
         <div class="ar-types-grid">
