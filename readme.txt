@@ -71,6 +71,10 @@ See `examples/integrate-your-plugin.php` and the README for the full resource sc
 2. The readiness report.
 3. The Discovery Hub — providers, capabilities, tools and the well-known endpoints.
 
+== Source & build ==
+
+There is no minified-only code. The admin interface is built from Vue 3 source in `resources/` with Vite; the source and `vite.config.js` ship in this package and also live in the public repository at https://github.com/heera/agentify . Run `npm install && npm run build` to regenerate `assets/admin/` from source.
+
 == Changelog ==
 
 = 1.0.0 =
