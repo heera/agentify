@@ -35,7 +35,7 @@ Agentify also publishes a single, normalized discovery layer, built to the conve
 * **/.well-known/discovery.json** — a registry of the site's identity, capabilities, APIs and agent cards. Plugins declare themselves through one hook (`agentify_discovery_register`), so everything an agent would need is aggregated in one place.
 * **/.well-known/agent-card.json** and **/.well-known/mcp.json** — an A2A agent card and an MCP manifest, generated automatically.
 * **WordPress Abilities API → MCP tools** — registered abilities are projected into MCP-shaped tools, and a running MCP server (if present) is detected and linked.
-* **Built-in adapters** for WooCommerce and Fluent Cart, plus a **Discovery Hub** admin screen to inspect the registry, providers, tools and validation.
+* **Zero-config auto-discovery** — reads your registered REST API namespaces, public post types and the WordPress Abilities API, so a site is discoverable even when no plugin declares itself. A **Discovery Hub** admin screen shows the registry, providers, tools and validation.
 
 **What's read today vs. what it readies you for**
 
@@ -90,5 +90,5 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 = 1.0.0 =
 * /llms.txt, /llms-full.txt, markdown delivery, JSON-LD, robots content-signals, and a readiness report.
 * Machine discovery layer: /.well-known/discovery.json with a public registration hook (agentify_discovery_register) for plugins to declare capabilities, APIs and agent cards.
-* MCP & tools: projects the WordPress Abilities API into MCP-shaped tools, /.well-known/mcp.json and agent-card.json. Built-in WooCommerce and Fluent Cart adapters.
+* MCP & tools: projects the WordPress Abilities API into MCP-shaped tools, /.well-known/mcp.json and agent-card.json. Zero-config auto-discovery of REST namespaces and public post types.
 * Admin Discovery Hub for inspecting the registry, providers, tools and validation.

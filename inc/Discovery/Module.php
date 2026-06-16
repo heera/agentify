@@ -35,9 +35,11 @@ final class Module {
 	public function register() {
 		( new WellKnown( $this->settings, $this->registry ) )->register();
 
-		// Built-in adapters: first-party callers of the public hook, nothing more.
-		( new Adapters\WooCommerce() )->register();
-		( new Adapters\FluentCart() )->register();
+		// Built-in adapters: generic, zero-config auto-discovery only — no
+		// plugin-specific knowledge. They read WordPress's own registries (REST
+		// namespaces, post types, the Abilities API) and register through the same
+		// public hook a third-party would use.
+		( new Adapters\RestApi() )->register();
 		( new Adapters\AbilitiesApi() )->register();
 
 		add_action( 'send_headers', array( $this, 'link_header' ) );

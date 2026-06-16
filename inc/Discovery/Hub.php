@@ -23,8 +23,7 @@ final class Hub {
 	 * @var string[]
 	 */
 	const ADAPTERS = array(
-		Adapters\WooCommerce::class,
-		Adapters\FluentCart::class,
+		Adapters\RestApi::class,
 		Adapters\AbilitiesApi::class,
 	);
 
