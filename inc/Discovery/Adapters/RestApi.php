@@ -38,9 +38,14 @@ final class RestApi {
 	/**
 	 * Hook the public registration action. Availability is checked at fire-time,
 	 * by which point the REST server has its full route map.
+	 *
+	 * Runs LATE (priority 99) so every explicit provider — which hooks at the
+	 * default priority 10 — has already registered by the time we fill gaps. That
+	 * makes auto-discovery a true fallback: a namespace a plugin described itself
+	 * is left untouched, never shadowed or duplicated by a generic stub.
 	 */
 	public function register() {
-		add_action( AGENTIFY_CANONICAL_HOOK, array( $this, 'provide' ) );
+		add_action( AGENTIFY_CANONICAL_HOOK, array( $this, 'provide' ), 99 );
 	}
 
 	/**
@@ -86,9 +91,14 @@ final class RestApi {
 
 		$namespaces = (array) rest_get_server()->get_namespaces();
 
+		// Whatever explicit providers already registered (we run late, priority 99).
+		// A namespace any of these already describe is left to them — we only fill
+		// gaps, so the auto-stub never shadows or duplicates a first-class entry.
+		$existing = $registry->resources();
+
 		// 1. WordPress core content, with capabilities derived from the public,
 		//    REST-enabled post types and taxonomies actually registered here.
-		if ( in_array( 'wp/v2', $namespaces, true ) ) {
+		if ( in_array( 'wp/v2', $namespaces, true ) && ! isset( $existing['wordpress-core'] ) && ! self::is_described( 'wp/v2', $existing ) ) {
 			$registry->register(
 				array(
 					'id'           => 'wordpress-core',
@@ -122,9 +132,13 @@ final class RestApi {
 		 */
 		$allowed = (array) apply_filters( 'agentify_rest_namespaces', self::allowed() );
 
-		// 2. Only the third-party namespaces the owner opted in (or a filter added).
+		// 2. Only the third-party namespaces the owner opted in (or a filter added)
+		//    AND that no explicit provider has already described.
 		foreach ( $namespaces as $namespace ) {
 			if ( ! self::is_third_party( $namespace, $skip ) || ! self::is_allowed( $namespace, $allowed ) ) {
+				continue;
+			}
+			if ( self::is_described( $namespace, $existing ) ) {
 				continue;
 			}
 			$registry->register(
@@ -280,6 +294,61 @@ final class RestApi {
 	 */
 	public static function is_allowed( $namespace, array $allowed ) {
 		return in_array( (string) $namespace, $allowed, true );
+	}
+
+	/**
+	 * Whether an explicit provider has already described this namespace, in which
+	 * case the auto-stub is skipped. True when either:
+	 *   - a resource already exists under the id this adapter would mint for the
+	 *     namespace (an intentional override), or
+	 *   - any existing resource has an endpoint pointing into `/wp-json/<ns>`.
+	 *
+	 * Pure: takes the resources map (id => resource) so it is unit-testable.
+	 *
+	 * @param string $namespace REST namespace, e.g. "acme/v1".
+	 * @param array  $resources Already-registered resources, keyed by id.
+	 * @return bool
+	 */
+	public static function is_described( $namespace, array $resources ) {
+		if ( isset( $resources[ self::slug( $namespace ) ] ) ) {
+			return true;
+		}
+		foreach ( $resources as $resource ) {
+			$endpoints = isset( $resource['endpoints'] ) ? (array) $resource['endpoints'] : array();
+			foreach ( $endpoints as $endpoint ) {
+				$url = isset( $endpoint['url'] ) ? $endpoint['url'] : '';
+				if ( self::endpoint_covers( $url, $namespace ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Whether an endpoint URL addresses a given REST namespace — i.e. its path
+	 * contains `/<namespace>` as a whole segment run (so "acme/v1" matches
+	 * "/wp-json/acme/v1" and "…/acme/v1/products" but never "…/acme/v10").
+	 * Query/fragment and a trailing slash are ignored.
+	 *
+	 * @param string $url       Endpoint URL (relative or absolute).
+	 * @param string $namespace REST namespace.
+	 * @return bool
+	 */
+	public static function endpoint_covers( $url, $namespace ) {
+		$url       = strtolower( (string) preg_replace( '/[?#].*$/', '', (string) $url ) );
+		$url       = rtrim( $url, '/' );
+		$namespace = strtolower( (string) $namespace );
+		if ( '' === $url || '' === $namespace ) {
+			return false;
+		}
+		$token = '/' . $namespace;
+		$pos   = strpos( $url, $token );
+		if ( false === $pos ) {
+			return false;
+		}
+		$after = substr( $url, $pos + strlen( $token ) );
+		return '' === $after || '/' === $after[0];
 	}
 
 	/**

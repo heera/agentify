@@ -148,6 +148,16 @@ final class Registry {
 		}
 		$this->collected = true;
 
+		// Drain the facade queue FIRST, so resources registered through the global
+		// facade are already present when the hook fires. The late-priority (99)
+		// auto-discovery adapter can then treat them, too, as already-described
+		// namespaces and skip its generic stub for them.
+		if ( class_exists( '\Agentify_Discovery' ) ) {
+			foreach ( \Agentify_Discovery::drain() as $queued ) {
+				$this->add( $queued );
+			}
+		}
+
 		/**
 		 * The public registration hook. Providers do:
 		 *
@@ -164,13 +174,6 @@ final class Registry {
 		 */
 		do_action( AGENTIFY_CANONICAL_HOOK, $this );
 		do_action( AGENTIFY_DISCOVERY_HOOK, $this );
-
-		// Drain anything queued through the global facade before we were ready.
-		if ( class_exists( '\Agentify_Discovery' ) ) {
-			foreach ( \Agentify_Discovery::drain() as $queued ) {
-				$this->add( $queued );
-			}
-		}
 
 		return $this;
 	}
