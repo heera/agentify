@@ -36,7 +36,11 @@ final class Hub {
 	 * @return array
 	 */
 	public static function data( Settings $settings, Registry $registry ) {
-		$envelope = ( new Envelope( $settings, $registry ) )->build();
+		$builder  = new Envelope( $settings, $registry );
+		$envelope = $builder->build();
+		// tools + mcp are not part of the public discovery.json core; pull them from
+		// the builder for the admin screen and the mcp.json document.
+		$surface  = $builder->mcp_surface();
 
 		return array(
 			'endpoints'    => array(
@@ -61,15 +65,15 @@ final class Hub {
 				$envelope['agents']
 			),
 			'wellKnown'    => $envelope['well_known'],
-			'tools'        => $envelope['tools'],
-			'mcp'          => $envelope['mcp'],
+			'tools'        => $surface['tools'],
+			'mcp'          => $surface['mcp'],
 			'adapters'     => self::adapters(),
 			'notices'      => $registry->notices(),
 			'counts'       => array(
 				'resources'    => count( $envelope['resources'] ),
 				'capabilities' => count( $envelope['capabilities'] ),
 				'apis'         => count( $envelope['apis'] ),
-				'tools'        => count( $envelope['tools'] ),
+				'tools'        => count( $surface['tools'] ),
 				'errors'       => count(
 					array_filter(
 						$registry->notices(),

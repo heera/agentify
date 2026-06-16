@@ -17,18 +17,23 @@ defined( 'ABSPATH' ) || exit;
 
 final class Envelope {
 
-	/** Wire-format (document) version of the WP_Discovery protocol — semver. */
-	const SPEC_VERSION = '1.0.0';
-
-	/** Protocol identifier, so a discovery document is self-describing. */
-	const SPEC = 'wp-discovery';
+	/**
+	 * Frozen wire-format version of the Discovery Document — major.minor, NOT
+	 * semver. A consumer selects its parser on this exact string (spec §02), so it
+	 * stays "1.0" for the life of the 1.x wire format; additive, backward-compatible
+	 * changes do not bump it. The plugin's own release version is separate (see the
+	 * header in agentify.php).
+	 */
+	const SPEC_VERSION = '1.0';
 
 	/**
-	 * Canonical home of the JSON Schema. Deliberately NOT a personal domain — the
-	 * protocol identity must stay vendor-neutral. Filterable until the schema is
-	 * published at its permanent home.
+	 * Home of the JSON Schema. A `$schema` is fundamentally an identifier, so it
+	 * lives on a domain we actually control and that resolves; the bytes can be
+	 * served from anywhere (GitHub Pages on the spec repo, a CNAME, the WP host).
+	 * Per-site overridable via the `agentify_discovery_schema_url` filter, so a
+	 * vendor-neutral home can replace this with no release once one is registered.
 	 */
-	const SCHEMA_BASE = 'https://wp-discovery.org/schema';
+	const SCHEMA_BASE = 'https://heera.github.io/wp-discovery-protocol/schemas';
 
 	/** @var Settings */
 	private $settings;
@@ -95,6 +100,13 @@ final class Envelope {
 		$this->registry->collect();
 		$resources = array_values( $this->registry->resources() );
 
+		// The frozen wire-format core: exactly the eleven top-level keys the spec
+		// (§02 / M2) defines, in order. Experimental surfaces — the MCP descriptor
+		// and the tool list — are deliberately NOT baked into the stable contract;
+		// they are served at /.well-known/mcp.json (linked from `well_known`) so they
+		// can track the still-unsettled MCP discovery proposal without a wire bump.
+		// A consumer needing extras inline can add `x-`-prefixed keys via the
+		// `agentify_discovery_envelope` filter; the unprefixed namespace is the spec's.
 		$envelope = array(
 			/**
 			 * The JSON Schema URL. Filter to point at a different (e.g. GitHub-
@@ -102,8 +114,7 @@ final class Envelope {
 			 *
 			 * @param string $url Schema URL.
 			 */
-			'$schema'      => apply_filters( 'agentify_discovery_schema_url', self::SCHEMA_BASE . '/' . self::SPEC_VERSION . '/discovery.json' ),
-			'spec'         => self::SPEC,
+			'$schema'      => apply_filters( 'agentify_discovery_schema_url', self::SCHEMA_BASE . '/discovery/' . self::SPEC_VERSION . '/discovery.schema.json' ),
 			'spec_version' => self::SPEC_VERSION,
 			'site'         => $this->site(),
 			'identity'     => $this->identity(),
@@ -113,9 +124,7 @@ final class Envelope {
 			'agents'       => $this->agents( $resources ),
 			'resources'    => array_map( array( $this, 'absolutize_resource' ), $resources ),
 			'capabilities' => $this->capabilities( $resources ),
-			'tools'        => $this->tools( $resources ),
-			// Cast to objects so empty blocks encode as {}, not [].
-			'mcp'          => (object) $this->mcp( $resources ),
+			// Cast to object so an empty trust block encodes as {}, not [].
 			'trust'        => (object) $this->trust(),
 		);
 
@@ -411,19 +420,38 @@ final class Envelope {
 	}
 
 	/**
+	 * The MCP/tools surface — served at /.well-known/mcp.json and shown on the admin
+	 * Discovery screen, but intentionally NOT part of the frozen discovery.json core
+	 * (MCP discovery is still an unsettled proposal). Computed straight from the
+	 * collected registry so callers don't round-trip through the full envelope.
+	 *
+	 * @return array{tools:array[],mcp:array}
+	 */
+	public function mcp_surface() {
+		$this->registry->collect();
+		$resources = array_values( $this->registry->resources() );
+		return array(
+			'tools' => $this->tools( $resources ),
+			'mcp'   => $this->mcp( $resources ),
+		);
+	}
+
+	/**
 	 * The /.well-known/mcp.json manifest: site identity, the MCP descriptor, and
 	 * the tool list — what an agent fetches to find this site's MCP surface.
 	 *
 	 * @return string
 	 */
 	public function mcp_json() {
-		$envelope = $this->build();
-		$doc      = array(
-			'name'        => $envelope['site']['name'],
-			'description' => $envelope['site']['description'],
-			'url'         => $envelope['site']['url'],
-			'mcp'         => $envelope['mcp'],
-			'tools'       => $envelope['tools'],
+		$surface = $this->mcp_surface();
+		$site    = $this->site();
+		$doc     = array(
+			'name'        => $site['name'],
+			'description' => $site['description'],
+			'url'         => $site['url'],
+			// Cast to object so an empty descriptor encodes as {}, not [].
+			'mcp'         => (object) $surface['mcp'],
+			'tools'       => $surface['tools'],
 		);
 		$json = wp_json_encode( $doc, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		return is_string( $json ) ? $json : '{}';
