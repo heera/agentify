@@ -12,7 +12,7 @@ Make your site legible to AI agents — llms.txt, markdown, JSON-LD, a /.well-kn
 
 == Description ==
 
-Agentify turns your site into a first-class citizen for AI agents, retrieval systems and modern crawlers — without the weight of an SEO suite. It ships five focused signals and a one-screen readiness report so you can see exactly how machine-readable your site is.
+Agentify makes your content and capabilities legible to search engines, AI assistants and modern crawlers — using the standards they already consume, without the weight of an SEO suite. It ships five focused signals and a one-screen readiness report so you can see exactly how machine-readable your site is.
 
 **What it adds**
 
@@ -24,12 +24,16 @@ Agentify turns your site into a first-class citizen for AI agents, retrieval sys
 
 **Machine discovery & MCP**
 
-Agentify also exposes a single, aggregated discovery layer so AI agents can understand the *whole* site from one request:
+Agentify also publishes a single, normalized discovery layer, built to the conventions the agent ecosystem is converging on (the `.well-known` standard, A2A agent cards, MCP-shaped tools). It puts a site's identity, capabilities and APIs in one predictable place, so a client built to read it has nothing to reverse-engineer:
 
-* **/.well-known/discovery.json** — a registry of the site's identity, capabilities, APIs and agent cards. Plugins declare themselves through one hook (`agentify_discovery_register`), so an agent never has to reverse-engineer your stack.
+* **/.well-known/discovery.json** — a registry of the site's identity, capabilities, APIs and agent cards. Plugins declare themselves through one hook (`agentify_discovery_register`), so everything an agent would need is aggregated in one place.
 * **/.well-known/agent-card.json** and **/.well-known/mcp.json** — an A2A agent card and an MCP manifest, generated automatically.
 * **WordPress Abilities API → MCP tools** — registered abilities are projected into MCP-shaped tools, and a running MCP server (if present) is detected and linked.
 * **Built-in adapters** for WooCommerce and Fluent Cart, plus a **Discovery Hub** admin screen to inspect the registry, providers, tools and validation.
+
+**What's read today vs. what it readies you for**
+
+Honest framing: the content signals above (JSON-LD, sitemap, robots, llms.txt, markdown) are read by search engines and AI tools **today**. The discovery layer is **forward-looking and standards-aligned** — it makes your site ready for AI agents as they adopt these conventions, rather than claiming every agent already reads it. The discovery format is an open protocol with a reference client, not a private format.
 
 **Why it's different**
 
