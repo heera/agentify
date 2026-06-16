@@ -100,6 +100,22 @@ final class Envelope {
 		$this->registry->collect();
 		$resources = array_values( $this->registry->resources() );
 
+		// Owner authority / the publication boundary (spec §04, M14): drop any
+		// Resource the owner suppressed. A provider proposes; the owner disposes.
+		// Filtering here, before any derivation, keeps suppressed Resources out of
+		// apis[], agents[], capabilities AND resources[] — every served surface.
+		$suppressed = $this->suppressed_ids();
+		if ( ! empty( $suppressed ) ) {
+			$resources = array_values(
+				array_filter(
+					$resources,
+					static function ( $r ) use ( $suppressed ) {
+						return ! in_array( $r['id'], $suppressed, true );
+					}
+				)
+			);
+		}
+
 		// The frozen wire-format core: exactly the eleven top-level keys the spec
 		// (§02 / M2) defines, in order. Experimental surfaces — the MCP descriptor
 		// and the tool list — are deliberately NOT baked into the stable contract;
@@ -135,6 +151,28 @@ final class Envelope {
 		 * @param Registry $registry  The collector.
 		 */
 		return apply_filters( 'agentify_discovery_envelope', $envelope, $this->registry );
+	}
+
+	/**
+	 * Every collected Resource, absolutized, BEFORE owner suppression is applied.
+	 * For admin curation UIs that must show suppressed Resources so the owner can
+	 * re-enable them — NOT for serving (the served document uses build()).
+	 *
+	 * @return array[]
+	 */
+	public function all_resources() {
+		$this->registry->collect();
+		return array_map( array( $this, 'absolutize_resource' ), array_values( $this->registry->resources() ) );
+	}
+
+	/**
+	 * Resource ids the site owner has suppressed from all served output — the
+	 * publication boundary defined in spec §04 ("Owner authority").
+	 *
+	 * @return string[]
+	 */
+	public function suppressed_ids() {
+		return array_values( (array) $this->settings->get( 'suppressed_resources', array() ) );
 	}
 
 	/* ---------------------------------------------------------------------- *

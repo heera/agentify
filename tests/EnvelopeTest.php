@@ -25,6 +25,7 @@ final class EnvelopeTest extends TestCase {
 
 	protected function setUp(): void {
 		\_af_reset_registry();
+		\_af_reset_options();
 		Registry::instance()->register(
 			array(
 				'id'           => 'shop',
@@ -77,5 +78,40 @@ final class EnvelopeTest extends TestCase {
 		$surface = ( new Envelope( new Settings(), Registry::instance() ) )->mcp_surface();
 		$this->assertArrayHasKey( 'tools', $surface );
 		$this->assertArrayHasKey( 'mcp', $surface );
+	}
+
+	/* -- Owner authority / publication boundary (spec §04, M14) ----------- */
+
+	public function test_owner_suppression_removes_resource_and_its_derived_surface() {
+		// A second Resource so suppression is demonstrably selective.
+		Registry::instance()->register(
+			array(
+				'id'           => 'bookings',
+				'title'        => 'Bookings',
+				'type'         => 'scheduling',
+				'capabilities' => array( 'scheduling.booking.create' ),
+				'endpoints'    => array( array( 'url' => '/wp-json/acme/v1', 'type' => 'rest' ) ),
+			)
+		);
+		update_option( Settings::OPTION, array( 'suppressed_resources' => array( 'shop' ) ) );
+
+		$env = $this->build();
+		$ids = array_map( static function ( $r ) { return $r['id']; }, $env['resources'] );
+
+		// The suppressed Resource is gone everywhere it would otherwise surface.
+		$this->assertNotContains( 'shop', $ids );
+		$this->assertContains( 'bookings', $ids );
+		$this->assertNotContains( 'commerce.products.read', $env['capabilities'] );
+		$this->assertContains( 'scheduling.booking.create', $env['capabilities'] );
+		$this->assertCount( 0, $env['agents'], 'The Store Agent rode on the suppressed Resource.' );
+		foreach ( $env['apis'] as $api ) {
+			$this->assertStringNotContainsString( '/wc/', $api['base'] );
+		}
+	}
+
+	public function test_unsuppressed_resource_is_published_by_default() {
+		// No suppression set — a declared Resource publishes (default-ON, spec S7).
+		$ids = array_map( static function ( $r ) { return $r['id']; }, $this->build()['resources'] );
+		$this->assertContains( 'shop', $ids );
 	}
 }

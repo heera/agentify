@@ -344,10 +344,13 @@ final class Resource {
 
 	/**
 	 * Best-effort attribution. Walks out past this plugin's own frames and
-	 * WordPress core's hook-dispatch frames; the first frame inside another
-	 * plugin is the registrant. Built-in adapters (no third-party frame in the
-	 * stack) attribute to this plugin itself. Authors cannot spoof this — it
-	 * overwrites any author-supplied `provider`.
+	 * WordPress core's hook-dispatch frames; the first frame outside both is the
+	 * registrant. A registrant in a plugin, a mu-plugin, or a theme is all
+	 * third-party — what matters for owner curation is "Agentify's own code vs
+	 * everyone else," so anything that is not us is attributed to its source and
+	 * stays owner-curatable. Only a pure internal call (every frame ours/core —
+	 * e.g. a built-in auto-discovery adapter) attributes to this plugin itself.
+	 * Authors cannot spoof this — it overwrites any author-supplied `provider`.
 	 *
 	 * @return array{plugin:string}
 	 */
@@ -355,7 +358,10 @@ final class Resource {
 		$self    = function_exists( 'plugin_basename' ) ? plugin_basename( AGENTIFY_FILE ) : basename( AGENTIFY_FILE );
 		$ours    = wp_normalize_path( AGENTIFY_DIR );
 		$wpinc   = wp_normalize_path( ABSPATH . WPINC . '/' );
-		$plugins = wp_normalize_path( defined( 'WP_PLUGIN_DIR' ) ? WP_PLUGIN_DIR : WP_CONTENT_DIR . '/plugins' );
+		$content = wp_normalize_path( defined( 'WP_CONTENT_DIR' ) ? WP_CONTENT_DIR : ABSPATH . 'wp-content' );
+		$plugins = wp_normalize_path( defined( 'WP_PLUGIN_DIR' ) ? WP_PLUGIN_DIR : $content . '/plugins' );
+		$mu      = wp_normalize_path( defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR : $content . '/mu-plugins' );
+		$themes  = wp_normalize_path( $content . '/themes' );
 
 		$frames = debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace
 		foreach ( $frames as $frame ) {
@@ -366,10 +372,24 @@ final class Resource {
 			if ( 0 === strpos( $file, $ours ) || 0 === strpos( $file, $wpinc ) ) {
 				continue; // Our own code, or core's do_action dispatch — keep climbing.
 			}
+			// First frame outside Agentify and core = the registrant. Attribute by
+			// where it lives; check mu-plugins before plugins (mu lives outside the
+			// plugins dir, but be explicit) and themes too — none of these are us.
 			if ( 0 === strpos( $file, $plugins ) ) {
-				return array( 'plugin' => plugin_basename( $file ) ); // A third-party plugin registered this.
+				return array( 'plugin' => plugin_basename( $file ) );
 			}
-			break; // Reached a non-plugin caller (theme, index.php, CLI): treat as ours.
+			if ( 0 === strpos( $file, $mu ) ) {
+				return array( 'plugin' => 'mu-plugins/' . basename( $file ) );
+			}
+			if ( 0 === strpos( $file, $themes ) ) {
+				$rel = ltrim( substr( $file, strlen( $themes ) ), '/' );
+				return array( 'plugin' => 'theme/' . strtok( $rel, '/' ) );
+			}
+			// Reached a caller that is neither ours/core nor a plugin/mu/theme — the
+			// request entry point (index.php, WP-CLI). A real registrant always sits
+			// ABOVE the entry point, so if we got here without matching one, this is an
+			// internal/adapter call: attribute to us.
+			break;
 		}
 		return array( 'plugin' => $self );
 	}

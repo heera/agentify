@@ -41,6 +41,18 @@ final class Hub {
 		// the builder for the admin screen and the mcp.json document.
 		$surface  = $builder->mcp_surface();
 
+		// The admin lists EVERY Resource (suppressed ones flagged, not dropped) so
+		// the owner can re-enable them — unlike the served envelope, which excludes
+		// them. apis[]/capabilities/counts below stay from the filtered envelope, so
+		// they reflect what is actually published.
+		$suppressed = $builder->suppressed_ids();
+		$rows       = array_map(
+			static function ( $resource ) use ( $suppressed ) {
+				return self::resource_row( $resource, $suppressed );
+			},
+			$builder->all_resources()
+		);
+
 		return array(
 			'endpoints'    => array(
 				'discovery' => home_url( '/.well-known/discovery.json' ),
@@ -50,7 +62,7 @@ final class Hub {
 				'rest'      => rest_url( 'agentify/v1/discovery' ),
 			),
 			'site'         => $envelope['site'],
-			'resources'    => array_map( array( __CLASS__, 'resource_row' ), $envelope['resources'] ),
+			'resources'    => $rows,
 			'capabilities' => $envelope['capabilities'],
 			'apis'         => $envelope['apis'],
 			'agents'       => array_map(
@@ -70,6 +82,14 @@ final class Hub {
 			'notices'      => $registry->notices(),
 			'counts'       => array(
 				'resources'    => count( $envelope['resources'] ),
+				'suppressed'   => count(
+					array_filter(
+						$rows,
+						static function ( $r ) {
+							return ! empty( $r['suppressed'] );
+						}
+					)
+				),
 				'capabilities' => count( $envelope['capabilities'] ),
 				'apis'         => count( $envelope['apis'] ),
 				'tools'        => count( $surface['tools'] ),
@@ -88,12 +108,22 @@ final class Hub {
 	/**
 	 * Trim a full envelope resource to what the UI shows.
 	 *
-	 * @param array $resource Envelope resource.
+	 * @param array    $resource   Envelope resource.
+	 * @param string[] $suppressed Owner-suppressed Resource ids.
 	 * @return array
 	 */
-	private static function resource_row( $resource ) {
+	private static function resource_row( $resource, array $suppressed = array() ) {
 		$provider = isset( $resource['provider']['plugin'] ) ? $resource['provider']['plugin'] : '';
 		$ours     = function_exists( 'plugin_basename' ) ? plugin_basename( AGENTIFY_FILE ) : 'agentify/agentify.php';
+		$auto     = ( '' !== $provider && $provider === $ours );
+		// Which built-in engine found an auto resource — so the UI can show
+		// "Found via the REST API / Abilities API" and link it to the engine status.
+		// The AbilitiesApi adapter mints ids as `abilities-<ns>`; everything else
+		// auto comes from the REST adapter (wordpress-core + namespace stubs).
+		$engine = '';
+		if ( $auto ) {
+			$engine = ( 0 === strpos( (string) $resource['id'], 'abilities-' ) ) ? 'Abilities API' : 'REST API';
+		}
 		return array(
 			'id'           => $resource['id'],
 			'title'        => $resource['title'],
@@ -102,7 +132,10 @@ final class Hub {
 			'version'      => $resource['version'],
 			'provider'     => $provider,
 			// True when Agentify's own adapter registered it (auto-discovery), not a third-party plugin declaring itself.
-			'auto'         => ( '' !== $provider && $provider === $ours ),
+			'auto'         => $auto,
+			'engine'       => $engine,
+			// True when the owner has suppressed this Resource from served output.
+			'suppressed'   => in_array( $resource['id'], $suppressed, true ),
 			'capabilities' => $resource['capabilities'],
 			'endpoints'    => array_map(
 				static function ( $endpoint ) {

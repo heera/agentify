@@ -32,6 +32,7 @@ final class Settings {
 			'llms_full_posts'  => 50,
 			'post_types'       => Content::available(),
 			'rest_namespaces'  => array(), // Owner-curated REST namespaces to publish in discovery (opt-in; empty = none).
+			'suppressed_resources' => array(), // Owner opt-OUT: ids of provider-registered Resources to hide from all output. Declared Resources default to published (spec §04), so empty = publish everything a provider declared.
 			'identity'         => array(
 				'entity_type'   => 'Person', // Person | Organization.
 				'name'          => get_bloginfo( 'name' ),
@@ -199,6 +200,23 @@ final class Settings {
 							return preg_replace( '#[^a-z0-9/_-]#', '', strtolower( (string) $ns ) );
 						},
 						$ns_in
+					)
+				)
+			)
+		);
+
+		// Owner opt-OUT list: ids of provider-declared Resources to suppress from
+		// all served output. Stored by id so the choice survives the provider later
+		// changing that Resource (spec §04, M14). Ids match the Resource slug shape.
+		$sup_in                        = isset( $input['suppressed_resources'] ) && is_array( $input['suppressed_resources'] ) ? $input['suppressed_resources'] : array();
+		$clean['suppressed_resources'] = array_values(
+			array_unique(
+				array_filter(
+					array_map(
+						static function ( $id ) {
+							return trim( (string) preg_replace( '/[^a-z0-9-]/', '', strtolower( (string) $id ) ), '-' );
+						},
+						$sup_in
 					)
 				)
 			)

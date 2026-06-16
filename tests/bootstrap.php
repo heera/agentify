@@ -62,9 +62,14 @@ namespace {
 	if ( ! function_exists( 'add_action' ) )            { function add_action() { return true; } }
 	if ( ! function_exists( 'add_filter' ) )            { function add_filter() { return true; } }
 	if ( ! function_exists( 'did_action' ) )            { function did_action( $tag ) { return 0; } }
-	if ( ! function_exists( 'get_option' ) )            { function get_option( $k, $d = false ) { return $d; } }
-	if ( ! function_exists( 'update_option' ) )         { function update_option( $k, $v ) { return true; } }
-	if ( ! function_exists( 'add_option' ) )            { function add_option( $k, $v ) { return true; } }
+	// Stateful option store so tests can set values (e.g. suppressed_resources)
+	// and read them back. Empty by default, so it behaves exactly like returning
+	// the default until a test writes — reset between tests via _af_reset_options().
+	$GLOBALS['_af_options'] = array();
+	if ( ! function_exists( 'get_option' ) )            { function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['_af_options'] ) ? $GLOBALS['_af_options'][ $k ] : $d; } }
+	if ( ! function_exists( 'update_option' ) )         { function update_option( $k, $v ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
+	if ( ! function_exists( 'add_option' ) )            { function add_option( $k, $v ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
+	function _af_reset_options() { $GLOBALS['_af_options'] = array(); }
 	if ( ! function_exists( 'wp_parse_args' ) )         { function wp_parse_args( $a, $d = array() ) { if ( is_object( $a ) ) { $a = get_object_vars( $a ); } elseif ( ! is_array( $a ) ) { $a = array(); } return array_merge( $d, $a ); } }
 	if ( ! function_exists( 'wp_json_encode' ) )        { function wp_json_encode( $d, $f = 0, $depth = 512 ) { return json_encode( $d, $f, $depth ); } }
 	if ( ! function_exists( 'trailingslashit' ) )       { function trailingslashit( $s ) { return rtrim( (string) $s, '/\\' ) . '/'; } }
