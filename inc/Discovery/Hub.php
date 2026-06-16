@@ -92,13 +92,17 @@ final class Hub {
 	 * @return array
 	 */
 	private static function resource_row( $resource ) {
+		$provider = isset( $resource['provider']['plugin'] ) ? $resource['provider']['plugin'] : '';
+		$ours     = function_exists( 'plugin_basename' ) ? plugin_basename( AGENTIFY_FILE ) : 'agentify/agentify.php';
 		return array(
 			'id'           => $resource['id'],
 			'title'        => $resource['title'],
 			'type'         => $resource['type'],
 			'description'  => $resource['description'],
 			'version'      => $resource['version'],
-			'provider'     => isset( $resource['provider']['plugin'] ) ? $resource['provider']['plugin'] : '',
+			'provider'     => $provider,
+			// True when Agentify's own adapter registered it (auto-discovery), not a third-party plugin declaring itself.
+			'auto'         => ( '' !== $provider && $provider === $ours ),
 			'capabilities' => $resource['capabilities'],
 			'endpoints'    => array_map(
 				static function ( $endpoint ) {

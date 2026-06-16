@@ -95,10 +95,7 @@ final class RestApi {
 					'title'        => 'WordPress Core',
 					'type'         => 'content',
 					'description'  => __( 'Core content exposed via the WordPress REST API.', 'agentify' ),
-					'capabilities' => self::core_capabilities(
-						self::rest_bases( get_post_types( array( 'public' => true, 'show_in_rest' => true ), 'objects' ) ),
-						self::rest_bases( get_taxonomies( array( 'public' => true, 'show_in_rest' => true ), 'objects' ) )
-					),
+					'capabilities' => self::content_capabilities(),
 					'endpoints'    => array(
 						array(
 							'url'         => '/wp-json/wp/v2',
@@ -175,6 +172,46 @@ final class RestApi {
 			return array();
 		}
 		return array_values( (array) ( new \Agentify\Settings() )->get( 'rest_namespaces', array() ) );
+	}
+
+	/**
+	 * Content capabilities for `wordpress-core`, derived ONLY from the post types
+	 * the owner enabled in Content types (settings.post_types) and the taxonomies
+	 * attached to them — so unchecking "Products" really does drop
+	 * content.product.read from discovery. Consistent with what feeds llms.txt /
+	 * markdown / schema.
+	 *
+	 * @return string[]
+	 */
+	private static function content_capabilities() {
+		$selected = array();
+		if ( class_exists( '\Agentify\Settings' ) ) {
+			$selected = (array) ( new \Agentify\Settings() )->get( 'post_types', array() );
+		}
+
+		$post_objects = array();
+		foreach ( (array) get_post_types( array( 'public' => true, 'show_in_rest' => true ), 'objects' ) as $obj ) {
+			if ( in_array( $obj->name, $selected, true ) ) {
+				$post_objects[] = $obj;
+			}
+		}
+
+		// Taxonomies attached to the selected post types (public, REST-enabled).
+		$tax_names = array();
+		foreach ( $post_objects as $obj ) {
+			foreach ( (array) get_object_taxonomies( $obj->name, 'names' ) as $tax_name ) {
+				$tax_names[ $tax_name ] = true;
+			}
+		}
+		$tax_objects = array();
+		foreach ( array_keys( $tax_names ) as $tax_name ) {
+			$tax = get_taxonomy( $tax_name );
+			if ( $tax && ! empty( $tax->public ) && ! empty( $tax->show_in_rest ) ) {
+				$tax_objects[] = $tax;
+			}
+		}
+
+		return self::core_capabilities( self::rest_bases( $post_objects ), self::rest_bases( $tax_objects ) );
 	}
 
 	/* ---------------------------------------------------------------------- *

@@ -104,7 +104,7 @@ export default {
     <section class="ar-card">
       <h2 class="ar-card__title">Registered providers</h2>
       <p class="ar-card__lead">
-        Plugins that declared capabilities via the <code>agentify_discovery_register</code> hook.
+        Resources discovered on this site — auto-detected by Agentify, or declared by a plugin via the <code>wpdiscovery_register</code> hook.
       </p>
 
       <p v-if="!resources.length" class="ar-wd-empty">
@@ -123,7 +123,10 @@ export default {
               <span v-if="r.version" class="ar-wd-ver">v{{ r.version }}</span>
             </div>
             <p v-if="r.description" class="ar-wd-prov__desc">{{ r.description }}</p>
-            <p class="ar-wd-prov__provider"><code>{{ r.provider }}</code></p>
+            <p class="ar-wd-prov__provider">
+              <span v-if="r.auto">Auto-discovered by Agentify</span>
+              <span v-else>Declared by <code>{{ r.provider }}</code></span>
+            </p>
 
             <div v-if="r.capabilities.length" class="ar-wd-caps">
               <span v-for="c in r.capabilities" :key="c" class="ar-wd-cap">{{ c }}</span>
