@@ -44,6 +44,13 @@ final class Plugin {
 
 		$this->settings = new Settings();
 
+		// Figure out post-type vendor labels at runtime (no hardcoded plugin list).
+		// Only on our settings screen, so the per-registration backtrace cost is
+		// never paid on a normal page load.
+		if ( is_admin() && 'agentify' === ( isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only admin screen check, no state change.
+			Content::watch_origins();
+		}
+
 		Cache::register_flush_hooks();
 
 		( new Endpoints( $this->settings ) )->register();

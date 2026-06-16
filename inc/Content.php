@@ -15,6 +15,15 @@ defined( 'ABSPATH' ) || exit;
 final class Content {
 
 	/**
+	 * Captured at registration time: post-type slug => the plugin folder that
+	 * registered it. Lets source() name the vendor at runtime with NO hardcoded
+	 * plugin list. Populated only on our settings screen (see watch_origins()).
+	 *
+	 * @var array<string,string>
+	 */
+	private static $origins = array();
+
+	/**
 	 * Public post types that are candidates for inclusion (minus attachments).
 	 *
 	 * @return string[]
@@ -88,23 +97,65 @@ final class Content {
 	}
 
 	/**
-	 * A human source hint for a post type, to disambiguate collisions (e.g.
-	 * WooCommerce and Fluent Cart both label theirs "Products"). Known commerce/
-	 * LMS types map to their plugin; everything else returns '' (the slug already
-	 * disambiguates). Extensible via the filter.
+	 * Start recording which plugin registers each post type. Hooked on
+	 * plugins_loaded (before `init`) so init-time registrations are captured.
+	 * Scoped to our settings screen by the caller, so the backtrace cost is never
+	 * paid on a normal page load.
+	 */
+	public static function watch_origins() {
+		add_action( 'registered_post_type', array( __CLASS__, 'record_origin' ), 10, 1 );
+	}
+
+	/**
+	 * Record the plugin folder that registered $post_type, via the call stack.
+	 *
+	 * @param string $post_type Post type slug.
+	 */
+	public static function record_origin( $post_type ) {
+		if ( isset( self::$origins[ $post_type ] ) ) {
+			return;
+		}
+		$dir = self::registrant_dir();
+		if ( '' !== $dir ) {
+			self::$origins[ $post_type ] = $dir;
+		}
+	}
+
+	/**
+	 * Walk the call stack to the first frame inside a third-party plugin (not
+	 * core, not us) and return its top-level plugin folder, or '' for core/unknown.
+	 *
+	 * @return string
+	 */
+	private static function registrant_dir() {
+		$plugins = wp_normalize_path( defined( 'WP_PLUGIN_DIR' ) ? WP_PLUGIN_DIR : WP_CONTENT_DIR . '/plugins' );
+		$ours    = wp_normalize_path( AGENTIFY_DIR );
+		foreach ( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS ) as $frame ) { // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace
+			if ( empty( $frame['file'] ) ) {
+				continue;
+			}
+			$file = wp_normalize_path( $frame['file'] );
+			if ( 0 === strpos( $file, $ours ) ) {
+				continue; // our own frames
+			}
+			if ( 0 === strpos( $file, $plugins ) ) {
+				return (string) strtok( ltrim( substr( $file, strlen( $plugins ) ), '/' ), '/' );
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * A human source hint for a post type, to disambiguate collisions (e.g. two
+	 * plugins that both label their type "Products"). The vendor name is figured
+	 * out at runtime — the registering plugin's own header "Name" — so NOTHING is
+	 * hardcoded. Returns '' for core/unknown (the slug already disambiguates).
 	 *
 	 * @param string $post_type Post type slug.
 	 * @return string
 	 */
 	public static function source( $post_type ) {
-		$map = array(
-			'product'           => 'WooCommerce',
-			'product_variation' => 'WooCommerce',
-			'fluent-products'   => 'Fluent Cart',
-			'download'          => 'Easy Digital Downloads',
-			'sfwd-courses'      => 'LearnDash',
-		);
-		$source = isset( $map[ $post_type ] ) ? $map[ $post_type ] : '';
+		$source = isset( self::$origins[ $post_type ] ) ? self::plugin_name( self::$origins[ $post_type ] ) : '';
 
 		/**
 		 * Filter the source label shown next to a post type.
@@ -113,6 +164,31 @@ final class Content {
 		 * @param string $post_type Post type slug.
 		 */
 		return (string) apply_filters( 'agentify_post_type_source', $source, $post_type );
+	}
+
+	/**
+	 * Resolve a plugin folder to its own header "Name" (e.g. "woocommerce" →
+	 * "WooCommerce"), read from the plugin's metadata — never hardcoded. Falls back
+	 * to a titleized folder slug. Cached per request.
+	 *
+	 * @param string $dir Plugin folder.
+	 * @return string
+	 */
+	private static function plugin_name( $dir ) {
+		static $names = null;
+		if ( null === $names ) {
+			$names = array();
+			if ( ! function_exists( 'get_plugins' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/plugin.php';
+			}
+			foreach ( get_plugins() as $file => $data ) {
+				$folder = strtok( (string) $file, '/' );
+				if ( $folder && ! isset( $names[ $folder ] ) && ! empty( $data['Name'] ) ) {
+					$names[ $folder ] = $data['Name'];
+				}
+			}
+		}
+		return isset( $names[ $dir ] ) ? $names[ $dir ] : ucwords( str_replace( array( '-', '_' ), ' ', $dir ) );
 	}
 
 	/**
