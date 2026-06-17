@@ -124,6 +124,7 @@ final class Plugin {
 	public static function deactivate() {
 		Cache::flush();
 		Activity\Module::unschedule();
+		wp_clear_scheduled_hook( 'agentify_warm_llms_full' );
 		flush_rewrite_rules();
 	}
 }

@@ -20,3 +20,4 @@ global $wpdb;
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}agentify_agent_hits" ); // phpcs:ignore WordPress.DB
 delete_option( 'agentify_activity_db_version' );
 wp_clear_scheduled_hook( 'agentify_prune_activity' );
+wp_clear_scheduled_hook( 'agentify_warm_llms_full' );

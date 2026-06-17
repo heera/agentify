@@ -323,6 +323,11 @@ final class Envelope {
 			$index[ Signer::DIRECTORY ] = array( 'name' => Signer::DIRECTORY, 'url' => home_url( '/.well-known/' . Signer::DIRECTORY ), 'source' => 'generated' );
 		}
 
+		// RFC 9728 protected-resource metadata is listed only when an auth server is set.
+		if ( '' !== trim( (string) $this->settings->get( 'oauth_auth_server', '' ) ) ) {
+			$index['oauth-protected-resource'] = array( 'name' => 'oauth-protected-resource', 'url' => home_url( '/.well-known/oauth-protected-resource' ), 'source' => 'generated' );
+		}
+
 		// 2. Plugin-managed providers.
 		foreach ( $this->registry->well_known() as $name => $def ) {
 			$index[ $name ] = array( 'name' => $name, 'url' => home_url( '/.well-known/' . $name ), 'source' => 'managed' );
@@ -753,6 +758,27 @@ final class Envelope {
 			'skills'        => array_values( $skills ),
 		);
 		$json = wp_json_encode( $doc, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		return is_string( $json ) ? $json : '';
+	}
+
+	/**
+	 * RFC 9728 OAuth Protected Resource Metadata — served only when the owner has
+	 * declared an authorization server (settings → oauth_auth_server). For a site
+	 * with no authenticated API this is '' → a clean 404. We never fabricate an
+	 * RFC 8414 authorization-server document (WordPress is not one).
+	 *
+	 * @return string JSON, or '' when no auth server is configured.
+	 */
+	public function oauth_protected_resource_json() {
+		$auth = trim( (string) $this->settings->get( 'oauth_auth_server', '' ) );
+		if ( '' === $auth ) {
+			return '';
+		}
+		$doc  = array(
+			'resource'              => home_url( '/' ),
+			'authorization_servers' => array( $auth ),
+		);
+		$json = wp_json_encode( $doc, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
 		return is_string( $json ) ? $json : '';
 	}
 

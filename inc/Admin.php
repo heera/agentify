@@ -169,6 +169,7 @@ final class Admin {
 			),
 			'version'     => AGENTIFY_VERSION,
 			'onboarded'   => $this->is_onboarded(),
+			'llmsFullEstimate' => Content::estimate_full_size( $this->settings ),
 		);
 	}
 

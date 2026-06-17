@@ -36,6 +36,7 @@ final class Settings {
 			'llms_full_max_kb' => 1024, // Hard byte budget for /llms-full.txt (KB): generation stops cleanly here and links the index. Keeps the file ingestible and under common 1 MB object-cache row limits.
 			'post_types'       => self::default_post_types(),
 			'rest_namespaces'  => array(), // Owner-curated REST namespaces to publish in discovery (opt-in; empty = none).
+			'oauth_auth_server' => '',     // Optional OAuth authorization-server URL; when set, serve RFC 9728 protected-resource metadata. Never fabricate RFC 8414.
 			'suppressed_resources' => array(), // Owner opt-OUT: ids of provider-registered Resources to hide from all output. Declared Resources default to published (spec §04), so empty = publish everything a provider declared.
 			'identity'         => array(
 				'entity_type'   => 'Person', // Person | Organization.
@@ -237,6 +238,8 @@ final class Settings {
 
 		$kb                        = isset( $input['llms_full_max_kb'] ) ? (int) $input['llms_full_max_kb'] : $defaults['llms_full_max_kb'];
 		$clean['llms_full_max_kb'] = max( 64, min( 20480, $kb ) );
+
+		$clean['oauth_auth_server'] = isset( $input['oauth_auth_server'] ) ? esc_url_raw( (string) $input['oauth_auth_server'] ) : '';
 
 		$available           = Content::available();
 		$requested           = $this->sanitize_list( isset( $input['post_types'] ) ? $input['post_types'] : array(), 'sanitize_key' );

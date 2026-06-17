@@ -69,7 +69,7 @@ final class WellKnown {
 		// canonical redirect resolves it to the homepage (a 200, not a 404). So
 		// security.txt etc. are intentionally absent — a provider that serves one
 		// adds its name here via the `agentify_well_known_routed` filter.
-		$names = array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json', 'api-catalog', Signer::DIRECTORY );
+		$names = array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json', 'api-catalog', 'oauth-protected-resource', Signer::DIRECTORY );
 
 		/**
 		 * Filter the /.well-known names routed to WordPress by an explicit rule.
@@ -201,6 +201,13 @@ final class WellKnown {
 			case 'api-catalog':
 				// RFC 9727 API catalog, as an RFC 9264 link set.
 				$this->send( $this->envelope->api_catalog_json(), 'application/linkset+json', 'api-catalog' );
+				break;
+			case 'oauth-protected-resource':
+				// RFC 9728 — served only when the owner declared an auth server.
+				$prm = $this->envelope->oauth_protected_resource_json();
+				if ( '' !== $prm ) {
+					$this->send( $prm, 'application/json', 'oauth-protected-resource' );
+				}
 				break;
 			case Signer::DIRECTORY:
 				// The Web Bot Auth key directory — served only when signing is on.

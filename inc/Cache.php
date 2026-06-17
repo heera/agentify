@@ -59,6 +59,12 @@ final class Cache {
 		delete_transient( self::DISCOVERY );
 		delete_transient( self::SECURITY_TXT );
 		delete_transient( self::SITEMAP_GEN ); // Orphans every sub-sitemap transient.
+
+		/**
+		 * Fires after the generated caches are dropped (content changed) — the seam
+		 * used to schedule a debounced out-of-band re-warm of the heavy full-text edition.
+		 */
+		do_action( 'agentify_cache_flushed' );
 	}
 
 	/**

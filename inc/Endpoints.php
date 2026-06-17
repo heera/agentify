@@ -32,6 +32,37 @@ final class Endpoints {
 		// theme already emitted this request (zero-config de-dupe).
 		add_action( 'send_headers', array( $this, 'link_headers' ), 99 );
 		add_filter( 'robots_txt', array( $this, 'robots_txt' ), 20, 2 );
+		// Re-warm the heavy full-text edition out-of-band after content changes.
+		add_action( 'agentify_cache_flushed', array( $this, 'schedule_warm' ) );
+		add_action( 'agentify_warm_llms_full', array( $this, 'warm_llms_full' ) );
+	}
+
+	/**
+	 * On a content change (cache flush), schedule ONE debounced WP-Cron event to
+	 * regenerate /llms-full.txt — so a crawler rarely pays cold-cache generation. A
+	 * burst of edits coalesces into a single pending warm. WP-Cron is request-
+	 * triggered, so this is best-effort (the bounded generation in llms_full_txt()
+	 * is the real safety net), not a guarantee.
+	 */
+	public function schedule_warm() {
+		if ( ! $this->settings->enabled( 'enable_llms_full' ) ) {
+			return;
+		}
+		if ( function_exists( 'wp_next_scheduled' ) && function_exists( 'wp_schedule_single_event' )
+			&& ! wp_next_scheduled( 'agentify_warm_llms_full' ) ) {
+			wp_schedule_single_event( time() + 30, 'agentify_warm_llms_full' );
+		}
+	}
+
+	/**
+	 * Cron callback: regenerate the full-text edition into cache (bounded by the
+	 * size/time budget). No-op when the feature is off or ceded to another producer.
+	 */
+	public function warm_llms_full() {
+		if ( ! $this->settings->enabled( 'enable_llms_full' ) || $this->yields( 'llms_full' ) ) {
+			return;
+		}
+		$this->llms_full_txt();
 	}
 
 	/**

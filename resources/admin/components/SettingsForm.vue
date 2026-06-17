@@ -17,6 +17,7 @@ export default {
     profileSaved: { type: Boolean, default: false },
     resetting: { type: Boolean, default: false },
     defaults: { type: Object, default: () => ({}) },
+    llmsFullEstimate: { type: Object, default: () => ({}) },
   },
   emits: ['save-profile', 'reset', 'reopen-wizard'],
   data() {
@@ -99,6 +100,19 @@ export default {
         { key: 'enable_sitemap', label: 'Sitemap (backup)', hint: 'Adds a sitemap only when WordPress core and your SEO plugin don’t already provide one — never duplicates.' },
         { key: 'enable_signing', label: 'Sign discovery docs', hint: 'Cryptographically sign your discovery files (Ed25519) and publish a key directory so agents can verify they came from you. Experimental (Web Bot Auth).' },
       ];
+    },
+    // A heads-up under the posts-per-type input: the server's COUNT-only estimate
+    // of the full-text file size for the saved config (refreshes on reload).
+    fullSizeNote() {
+      const e = this.llmsFullEstimate || {};
+      if (!e.items) return null;
+      const fmt = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+      return {
+        warn: !!e.will_truncate,
+        text: e.will_truncate
+          ? `About ${e.items} items (≈${fmt(e.est_bytes)}) would exceed the ${fmt(e.budget_bytes)} limit, so the file will be truncated — lower this, or rely on the /llms.txt index.`
+          : `About ${e.items} items (≈${fmt(e.est_bytes)}), within the ${fmt(e.budget_bytes)} limit.`,
+      };
     },
     resetPreview() {
       // A compact summary of the factory defaults, shown in the reset dialog so
@@ -417,6 +431,7 @@ export default {
           class="ar-input ar-input--sm"
         />
       </div>
+      <small v-if="fullSizeNote" class="ar-field__hint" :class="{ 'ar-warn': fullSizeNote.warn }">{{ fullSizeNote.text }}</small>
     </section>
 
     <!-- Crawler policy ------------------------------------------------- -->
@@ -599,6 +614,20 @@ export default {
         Suppressing removes a resource from discovery, the agent card and the REST mirror — but the
         plugin and its endpoints keep working exactly as before. It changes what agents are told, not what the site does.
       </p>
+    </section>
+
+    <!-- Authenticated API (RFC 9728, optional) ------------------------- -->
+    <section class="ar-card">
+      <h2 class="ar-card__title">Authenticated API <span class="ar-field__tag">optional</span></h2>
+      <p class="ar-card__lead">
+        If your site exposes an API protected by OAuth, name its authorization server and Agentify
+        publishes RFC 9728 metadata at <code>/.well-known/oauth-protected-resource</code> so agents can
+        find the auth flow. Leave empty for a content site.
+      </p>
+      <div class="ar-field">
+        <label for="ar-oauth-as">OAuth authorization server URL</label>
+        <input id="ar-oauth-as" v-model="settings.oauth_auth_server" type="url" class="ar-input" placeholder="https://auth.example.com" />
+      </div>
     </section>
 
     <!-- Endpoints (hidden when the rail shows them; returns on narrow screens) -->
