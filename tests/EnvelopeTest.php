@@ -114,4 +114,78 @@ final class EnvelopeTest extends TestCase {
 		$ids = array_map( static function ( $r ) { return $r['id']; }, $this->build()['resources'] );
 		$this->assertContains( 'shop', $ids );
 	}
+
+	/* -- Standards-aware auth docs (RFC 8414 / OIDC Discovery) ------------- */
+
+	public function test_oauth_api_auth_docs_falls_back_to_the_standard_well_known() {
+		$reg = Registry::instance();
+		$reg->register(
+			array(
+				'id'        => 'sso',
+				'title'     => 'SSO',
+				'type'      => 'auth',
+				'endpoints' => array( array( 'url' => '/wp-json/acme-oidc/v1', 'type' => 'rest', 'auth' => 'oidc' ) ),
+			)
+		);
+		// The site publishes the standard OIDC discovery document (registered well-known).
+		$reg->add_well_known( array( 'name' => 'openid-configuration', 'callback' => static function () { return '{}'; } ) );
+
+		$sso = $this->api_by_id( ( new Envelope( new Settings(), $reg ) )->build()['apis'], 'sso' );
+		$this->assertNotNull( $sso );
+		$this->assertSame( 'oidc', $sso['auth']['type'] );
+		$this->assertSame( 'https://example.test/.well-known/openid-configuration', $sso['auth']['docs'] );
+	}
+
+	public function test_auth_docs_is_empty_when_no_standard_well_known_is_served() {
+		$reg = Registry::instance();
+		$reg->register(
+			array(
+				'id'        => 'sso2',
+				'title'     => 'SSO2',
+				'type'      => 'auth',
+				'endpoints' => array( array( 'url' => '/wp-json/acme-oidc2/v1', 'type' => 'rest', 'auth' => 'oidc' ) ),
+			)
+		);
+		// Nothing publishes openid-configuration here → no dead link.
+		$sso = $this->api_by_id( ( new Envelope( new Settings(), $reg ) )->build()['apis'], 'sso2' );
+		$this->assertNotNull( $sso );
+		$this->assertSame( '', $sso['auth']['docs'] );
+	}
+
+	/* -- documents{} surface ---------------------------------------------- */
+
+	public function test_documents_lists_the_core_content_docs() {
+		$docs = $this->build()['documents'];
+		foreach ( array( 'sitemap', 'robots', 'feed' ) as $key ) {
+			$this->assertArrayHasKey( $key, $docs );
+		}
+		$this->assertSame( 'https://example.test/feed/', $docs['feed'] );
+		// humans.txt isn't present in the test root → not listed (no dead link).
+		$this->assertArrayNotHasKey( 'humans', $docs );
+	}
+
+	/* -- well_known[] spec annotation ------------------------------------- */
+
+	public function test_well_known_entries_are_annotated_with_their_spec() {
+		$reg = Registry::instance();
+		$reg->add_well_known( array( 'name' => 'security.txt', 'callback' => static function () { return ''; } ) );
+
+		$by = array();
+		foreach ( ( new Envelope( new Settings(), $reg ) )->build()['well_known'] as $entry ) {
+			$by[ $entry['name'] ] = $entry;
+		}
+
+		$this->assertSame( 'WP Discovery', $by['discovery.json']['spec'] );
+		$this->assertSame( 'A2A', $by['agent-card.json']['spec'] );
+		$this->assertSame( 'RFC 9116', $by['security.txt']['spec'] );
+	}
+
+	private function api_by_id( array $apis, string $id ) {
+		foreach ( $apis as $api ) {
+			if ( $id === $api['id'] ) {
+				return $api;
+			}
+		}
+		return null;
+	}
 }

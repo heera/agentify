@@ -210,18 +210,50 @@ final class Envelope {
 		);
 	}
 
-	/** @return array Generated/owned content mirrors, gated by feature flags. */
+	/**
+	 * Site-wide content/document links an agent can fetch: the sitemap, robots, the
+	 * RSS feed, the llms.txt pair, and humans.txt / security.txt when present. This
+	 * is the "map, not territory" surface — every entry is a link to a standard,
+	 * separately-served document — and it's filterable so a site can add ones the
+	 * plugin can't auto-detect (OpenAPI, a web-app manifest, …) without a code change.
+	 *
+	 * @return array name => URL.
+	 */
 	private function documents() {
-		$docs = array( 'sitemap' => $this->sitemap_url(), 'robots' => home_url( '/robots.txt' ) );
+		$docs = array(
+			'sitemap' => $this->sitemap_url(),
+			'robots'  => home_url( '/robots.txt' ),
+			'feed'    => get_feed_link(),
+		);
 		if ( $this->settings->enabled( 'enable_llms_txt' ) ) {
 			$docs['llms'] = home_url( '/llms.txt' );
 		}
 		if ( $this->settings->enabled( 'enable_llms_full' ) ) {
 			$docs['llms_full'] = home_url( '/llms-full.txt' );
 		}
+		if ( file_exists( ABSPATH . 'humans.txt' ) ) {
+			$docs['humans'] = home_url( '/humans.txt' );
+		}
 		if ( file_exists( ABSPATH . '.well-known/security.txt' ) || isset( $this->registry->well_known()['security.txt'] ) ) {
 			$docs['security'] = home_url( '/.well-known/security.txt' );
 		}
+
+		/**
+		 * Filter the discovery `documents` map. Add a standard document the plugin
+		 * can't auto-detect — e.g. an OpenAPI description or a web-app manifest:
+		 *
+		 *     add_filter( 'agentify_discovery_documents', function ( $docs ) {
+		 *         $docs['openapi'] = home_url( '/wp-json/myplugin/v1/openapi.json' );
+		 *         return $docs;
+		 *     } );
+		 *
+		 * Empty values are dropped after the filter.
+		 *
+		 * @param array    $docs     name => URL.
+		 * @param Registry $registry The collector.
+		 */
+		$docs = (array) apply_filters( 'agentify_discovery_documents', $docs, $this->registry );
+
 		return array_filter( $docs );
 	}
 
@@ -255,7 +287,67 @@ final class Envelope {
 			}
 		}
 
+		// Annotate each recognised name with the standard that governs it, so a
+		// consumer knows what the document IS — not just that it exists. Unknown
+		// names get no `spec` rather than a fabricated one.
+		$specs = $this->well_known_specs();
+		foreach ( $index as $name => &$entry ) {
+			if ( isset( $specs[ $name ] ) ) {
+				$entry['spec'] = $specs[ $name ];
+			}
+		}
+		unset( $entry );
+
 		return array_values( $index );
+	}
+
+	/**
+	 * Recognised /.well-known names → the standard that governs each, so the index
+	 * can tell a consumer what every document IS. Filterable, so a provider can
+	 * label a well-known it serves; unknown names are simply absent (no fabrication).
+	 *
+	 * @return array<string,string> name => spec label.
+	 */
+	private function well_known_specs() {
+		$specs = array(
+			// This protocol's own documents.
+			'discovery.json'             => 'WP Discovery',
+			'agent-card.json'            => 'A2A',
+			'agent.json'                 => 'A2A (legacy)',
+			'mcp.json'                   => 'MCP (experimental)',
+			// Security.
+			'security.txt'               => 'RFC 9116',
+			'mta-sts.txt'                => 'RFC 8461',
+			// Identity, auth & federation.
+			'openid-configuration'       => 'OpenID Connect Discovery',
+			'oauth-authorization-server' => 'RFC 8414',
+			'oauth-protected-resource'   => 'RFC 9728',
+			'jwks.json'                  => 'RFC 7517',
+			'webfinger'                  => 'RFC 7033',
+			'host-meta'                  => 'RFC 6415',
+			'openid-federation'          => 'OpenID Federation',
+			'nodeinfo'                   => 'NodeInfo',
+			// Apps & deep linking.
+			'assetlinks.json'            => 'Digital Asset Links',
+			'apple-app-site-association' => 'Apple Universal Links',
+			// Web platform & privacy.
+			'change-password'            => 'W3C Change Password URL',
+			'gpc.json'                   => 'Global Privacy Control',
+			'dnt-policy.txt'             => 'EFF Do Not Track',
+			'traffic-advice'             => 'Private Prefetch Proxy',
+			// Calendars & contacts.
+			'caldav'                     => 'RFC 6764',
+			'carddav'                    => 'RFC 6764',
+			// Legacy.
+			'ai-plugin.json'             => 'OpenAI Plugin (legacy)',
+		);
+
+		/**
+		 * Filter the /.well-known name → governing-spec labels.
+		 *
+		 * @param array<string,string> $specs name => spec label.
+		 */
+		return (array) apply_filters( 'agentify_well_known_specs', $specs );
 	}
 
 	/**
@@ -282,7 +374,7 @@ final class Envelope {
 					'schema' => isset( $resource['schemas'][0] ) ? $this->absolute( $resource['schemas'][0] ) : '',
 					'auth'   => array(
 						'type' => $auth_type,
-						'docs' => $this->absolute( $resource['auth']['docs'] ),
+						'docs' => $this->auth_docs( $auth_type, $resource['auth'] ),
 					),
 				);
 			}
@@ -403,6 +495,17 @@ final class Envelope {
 		// MCP discovery is still an unsettled area of the ecosystem; flag it so
 		// consumers treat this block as provisional, not stable contract.
 		$mcp['status'] = 'experimental';
+
+		// RFC 9728: a live MCP server is an OAuth protected resource. When the site
+		// actually publishes the standard Protected Resource Metadata, link it so an
+		// agent uses the settled auth-discovery handshake rather than the bespoke
+		// `auth` hint above. Gated on real presence — never a dead link.
+		if ( ! empty( $servers ) ) {
+			$prm = $this->well_known_if_present( 'oauth-protected-resource' );
+			if ( '' !== $prm ) {
+				$mcp['auth_metadata'] = $prm;
+			}
+		}
 
 		/**
 		 * Filter the advertised MCP descriptor.
@@ -549,6 +652,52 @@ final class Envelope {
 			return home_url( $url );
 		}
 		return $url;
+	}
+
+	/**
+	 * The public URL of a /.well-known doc, but ONLY when the site actually serves
+	 * it (a real file on disk or a registered provider) — so the discovery document
+	 * never advertises a dead link.
+	 *
+	 * @param string $name Doc name, e.g. "oauth-protected-resource".
+	 * @return string Absolute URL, or '' if not served here.
+	 */
+	private function well_known_if_present( $name ) {
+		if ( file_exists( ABSPATH . '.well-known/' . $name ) || isset( $this->registry->well_known()[ $name ] ) ) {
+			return home_url( '/.well-known/' . $name );
+		}
+		return '';
+	}
+
+	/**
+	 * The best "how to authenticate" link for an API endpoint, preferring standards
+	 * over bespoke strings:
+	 *   1. the provider's own auth docs, else
+	 *   2. a provider-declared OpenID Connect configuration, else
+	 *   3. the site's standard auth-metadata well-known for the scheme — OAuth 2.0
+	 *      Authorization Server Metadata (RFC 8414) or OpenID Connect Discovery —
+	 *      but only when it is actually published here.
+	 *
+	 * @param string $type Auth scheme (e.g. oauth, oidc).
+	 * @param array  $auth The resource's raw (relative) auth block.
+	 * @return string Absolute URL, or ''.
+	 */
+	private function auth_docs( $type, $auth ) {
+		$docs = $this->absolute( isset( $auth['docs'] ) ? $auth['docs'] : '' );
+		if ( '' !== $docs ) {
+			return $docs;
+		}
+		$oidc = $this->absolute( isset( $auth['oidc'] ) ? $auth['oidc'] : '' );
+		if ( '' !== $oidc ) {
+			return $oidc;
+		}
+		$map = array(
+			'oauth'  => 'oauth-authorization-server',
+			'oauth2' => 'oauth-authorization-server',
+			'oidc'   => 'openid-configuration',
+		);
+		$key = strtolower( (string) $type );
+		return isset( $map[ $key ] ) ? $this->well_known_if_present( $map[ $key ] ) : '';
 	}
 
 	/**
