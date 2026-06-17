@@ -65,15 +65,16 @@ namespace {
 	if ( ! function_exists( 'do_action' ) )             { function do_action( $tag ) { /* noop */ } }
 	if ( ! function_exists( 'add_action' ) )            { function add_action() { return true; } }
 	if ( ! function_exists( 'add_filter' ) )            { function add_filter() { return true; } }
-	if ( ! function_exists( 'did_action' ) )            { function did_action( $tag ) { return 0; } }
+	if ( ! function_exists( 'did_action' ) )            { function did_action( $tag ) { return ! empty( $GLOBALS['_af_did_actions'][ $tag ] ) ? 1 : 0; } }
 	// Stateful option store so tests can set values (e.g. suppressed_resources)
 	// and read them back. Empty by default, so it behaves exactly like returning
 	// the default until a test writes — reset between tests via _af_reset_options().
 	$GLOBALS['_af_options'] = array();
+	$GLOBALS['_af_did_actions'] = array(); // Tests flip e.g. 'mcp_adapter_init' to exercise the server-present path.
 	if ( ! function_exists( 'get_option' ) )            { function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['_af_options'] ) ? $GLOBALS['_af_options'][ $k ] : $d; } }
 	if ( ! function_exists( 'update_option' ) )         { function update_option( $k, $v ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
 	if ( ! function_exists( 'add_option' ) )            { function add_option( $k, $v ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
-	function _af_reset_options() { $GLOBALS['_af_options'] = array(); unset( $GLOBALS['_af_available_post_types'] ); }
+	function _af_reset_options() { $GLOBALS['_af_options'] = array(); $GLOBALS['_af_did_actions'] = array(); unset( $GLOBALS['_af_available_post_types'] ); }
 	// Always-miss transient stubs so cached endpoint bodies (e.g. security.txt)
 	// recompute deterministically in tests.
 	if ( ! function_exists( 'get_transient' ) )         { function get_transient( $k ) { return false; } }

@@ -521,12 +521,16 @@ final class Envelope {
 			foreach ( $servers as $server ) {
 				$tools += $server['tools'];
 			}
-			$mcp = array(
+			// The adapter's default auth is application-password; when the owner has
+			// declared an OAuth authorization server, the protected resources (this
+			// server included) use OAuth — reflect that, and link its metadata below.
+			$oauth = trim( (string) $this->settings->get( 'oauth_auth_server', '' ) );
+			$mcp   = array(
 				'available' => true,
 				'source'    => 'wordpress-mcp',
 				'endpoint'  => $servers[0]['endpoint'],
 				'transport' => $servers[0]['transport'],
-				'auth'      => 'application-password',
+				'auth'      => '' !== $oauth ? 'oauth' : 'application-password',
 				'tools'     => $tools,
 				'servers'   => $servers,
 			);
@@ -562,7 +566,7 @@ final class Envelope {
 		// agent uses the settled auth-discovery handshake rather than the bespoke
 		// `auth` hint above. Gated on real presence — never a dead link.
 		if ( ! empty( $servers ) ) {
-			$prm = $this->well_known_if_present( 'oauth-protected-resource' );
+			$prm = $this->oauth_prm_url();
 			if ( '' !== $prm ) {
 				$mcp['auth_metadata'] = $prm;
 			}
@@ -857,6 +861,23 @@ final class Envelope {
 			return home_url( '/.well-known/' . $name );
 		}
 		return '';
+	}
+
+	/**
+	 * The RFC 9728 Protected Resource Metadata URL when this site serves it — by ANY
+	 * means: the owner-declared auth server (settings → oauth_auth_server), a real
+	 * file on disk, or a registry-registered provider. Lets the MCP block link the
+	 * OAuth handshake regardless of HOW the doc is produced (well_known_if_present
+	 * alone misses the settings+route path that Envelope::oauth_protected_resource_json
+	 * serves). Returns '' — never a dead link — when nothing serves it.
+	 *
+	 * @return string Absolute URL, or ''.
+	 */
+	private function oauth_prm_url() {
+		$served = '' !== trim( (string) $this->settings->get( 'oauth_auth_server', '' ) )
+			|| file_exists( ABSPATH . '.well-known/oauth-protected-resource' )
+			|| isset( $this->registry->well_known()['oauth-protected-resource'] );
+		return $served ? home_url( '/.well-known/oauth-protected-resource' ) : '';
 	}
 
 	/**
