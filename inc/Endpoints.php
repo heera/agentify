@@ -28,7 +28,9 @@ final class Endpoints {
 	 */
 	public function register() {
 		add_action( 'template_redirect', array( $this, 'route' ), 0 );
-		add_action( 'send_headers', array( $this, 'link_headers' ) );
+		// Late, so link_headers() can see — and avoid duplicating — Link headers a
+		// theme already emitted this request (zero-config de-dupe).
+		add_action( 'send_headers', array( $this, 'link_headers' ), 99 );
 		add_filter( 'robots_txt', array( $this, 'robots_txt' ), 20, 2 );
 	}
 
@@ -52,11 +54,11 @@ final class Endpoints {
 		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
 		$path = '/' . ltrim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
 
-		if ( '/llms.txt' === $path && $this->settings->enabled( 'enable_llms_txt' ) ) {
+		if ( '/llms.txt' === $path && $this->settings->enabled( 'enable_llms_txt' ) && ! $this->yields( 'llms_txt' ) ) {
 			$this->send( $this->llms_txt(), 'text/plain', 'llms.txt' );
 		}
 
-		if ( '/llms-full.txt' === $path && $this->settings->enabled( 'enable_llms_full' ) ) {
+		if ( '/llms-full.txt' === $path && $this->settings->enabled( 'enable_llms_full' ) && ! $this->yields( 'llms_full' ) ) {
 			$this->send( $this->llms_full_txt(), 'text/plain', 'llms-full.txt' );
 		}
 
@@ -73,7 +75,7 @@ final class Endpoints {
 			return; // Unknown/inactive sitemap path: let WordPress 404 it normally.
 		}
 
-		if ( ! $this->settings->enabled( 'enable_markdown' ) ) {
+		if ( ! $this->settings->enabled( 'enable_markdown' ) || $this->yields( 'markdown' ) ) {
 			return;
 		}
 
@@ -142,16 +144,60 @@ final class Endpoints {
 	}
 
 	/**
-	 * Advertise discovery endpoints on every front-end response.
+	 * Whether Agentify should STAND DOWN for an agent-readiness surface, so another
+	 * producer (a theme or plugin that emits its own llms.txt, markdown, robots
+	 * rules or Link headers) owns it instead. This is the documented way to coexist
+	 * — a producer cedes a surface in one line, using this public API rather than
+	 * sniffing for the plugin:
 	 *
-	 * @param mixed $value Unused (send_headers passes WP).
+	 *     add_filter( 'agentify_yield_surface', function ( $yield, $surface ) {
+	 *         // My theme already serves these — let it.
+	 *         return in_array( $surface, array( 'llms_txt', 'markdown' ), true ) ? true : $yield;
+	 *     }, 10, 2 );
+	 *
+	 * @param string $surface One of: llms_txt, llms_full, markdown, link_headers, robots.
+	 * @return bool True if Agentify must not handle this surface.
+	 */
+	private function yields( $surface ) {
+		/**
+		 * Cede an agent-readiness surface to another producer.
+		 *
+		 * @param bool   $yield   Whether Agentify should stand down. Default false.
+		 * @param string $surface Surface key (llms_txt|llms_full|markdown|link_headers|robots).
+		 */
+		return (bool) apply_filters( 'agentify_yield_surface', false, $surface );
+	}
+
+	/**
+	 * Whether a `Link:` header with the given rel was already emitted this request
+	 * (e.g. by a theme). link_headers() runs late (priority 99) precisely so this
+	 * check sees earlier headers and never duplicates a rel another producer set.
+	 *
+	 * @param string $rel Relation type, e.g. "api-catalog".
+	 * @return bool
+	 */
+	private function link_present( $rel ) {
+		foreach ( headers_list() as $header ) {
+			if ( 0 === stripos( $header, 'link:' ) && false !== stripos( $header, 'rel="' . $rel . '"' ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Advertise discovery endpoints on every front-end response — skipping any rel a
+	 * theme/plugin already set (zero-config de-duplication), and standing down
+	 * entirely when the `link_headers` surface is ceded.
 	 */
 	public function link_headers() {
-		if ( is_admin() ) {
+		if ( is_admin() || $this->yields( 'link_headers' ) ) {
 			return;
 		}
-		header( 'Link: <' . esc_url_raw( rest_url() ) . '>; rel="api-catalog"', false );
-		if ( $this->settings->enabled( 'enable_llms_txt' ) ) {
+		if ( ! $this->link_present( 'api-catalog' ) ) {
+			header( 'Link: <' . esc_url_raw( rest_url() ) . '>; rel="api-catalog"', false );
+		}
+		if ( $this->settings->enabled( 'enable_llms_txt' ) && ! $this->link_present( 'describedby' ) ) {
 			header( 'Link: <' . esc_url_raw( home_url( '/llms.txt' ) ) . '>; rel="describedby"; type="text/plain"', false );
 		}
 	}
@@ -172,7 +218,7 @@ final class Endpoints {
 	 * @return string
 	 */
 	public function robots_txt( $output, $public ) {
-		if ( ! $public || ! $this->settings->enabled( 'enable_robots' ) ) {
+		if ( ! $public || ! $this->settings->enabled( 'enable_robots' ) || $this->yields( 'robots' ) ) {
 			return $output;
 		}
 
