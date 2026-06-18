@@ -21,7 +21,11 @@ namespace {
 	if ( ! defined( 'WPINC' ) )              define( 'WPINC', 'wp-includes' );
 	if ( ! defined( 'WP_CONTENT_DIR' ) )     define( 'WP_CONTENT_DIR', dirname( dirname( $plugin_dir ) ) );
 	if ( ! defined( 'WP_PLUGIN_DIR' ) )      define( 'WP_PLUGIN_DIR', dirname( $plugin_dir ) );
-	if ( ! defined( 'HEERA_AGENT_DISCOVERY_FILE' ) )      define( 'HEERA_AGENT_DISCOVERY_FILE', $plugin_dir . '/heera-agent-discovery.php' );
+	// FILE is built from the fixed plugin slug (not $plugin_dir) so plugin_basename()
+	// is deterministic regardless of the checkout folder name — CI checks the repo out
+	// into a folder named after the GitHub repo, which need not equal the slug. DIR
+	// stays the real on-disk path the bootstrap autoloader needs to locate inc/.
+	if ( ! defined( 'HEERA_AGENT_DISCOVERY_FILE' ) )      define( 'HEERA_AGENT_DISCOVERY_FILE', dirname( $plugin_dir ) . '/heera-agent-discovery/heera-agent-discovery.php' );
 	if ( ! defined( 'HEERA_AGENT_DISCOVERY_DIR' ) )       define( 'HEERA_AGENT_DISCOVERY_DIR', $plugin_dir . '/' );
 	if ( ! defined( 'HEERA_AGENT_DISCOVERY_VERSION' ) )   define( 'HEERA_AGENT_DISCOVERY_VERSION', '1.0.0' );
 	if ( ! defined( 'HEERA_AGENT_DISCOVERY_CANONICAL_HOOK' ) )  define( 'HEERA_AGENT_DISCOVERY_CANONICAL_HOOK', 'wpdiscovery_register' );
