@@ -8,6 +8,7 @@
 /.gitignore
 /.distignore
 /.editorconfig
+/.wordpress-org
 /node_modules
 /vendor
 /tests

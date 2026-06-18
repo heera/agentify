@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1544px; height: 500px; }
+  .banner {
+    position: relative; width: 1544px; height: 500px; overflow: hidden;
+    background: #f4f1e9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  .mark {
+    position: absolute; right: -30px; top: 50%; transform: translateY(-50%);
+    font-family: Georgia, "Times New Roman", serif; font-weight: 700;
+    font-size: 600px; line-height: 1; color: #ebe6d8; z-index: 0; user-select: none;
+  }
+  .row {
+    position: relative; z-index: 1; display: flex; align-items: center;
+    height: 100%; padding-left: 96px; gap: 46px;
+  }
+  /* Inline recreation of the brand "A" tile (matches the wp.org icon) */
+  .icon-tile {
+    width: 150px; height: 150px; flex: 0 0 150px; border-radius: 34px;
+    background: #1b1b18; position: relative; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .icon-tile::after {
+    content: ""; position: absolute; inset: 9px; border-radius: 26px;
+    border: 2px solid #2f9e8f;
+  }
+  .icon-tile svg { width: 92px; height: 92px; position: relative; }
+  .txt { display: flex; flex-direction: column; gap: 16px; }
+  .word {
+    font-family: Georgia, "Times New Roman", serif; font-weight: 700;
+    font-size: 84px; line-height: 1; letter-spacing: -1.5px; color: #1c1c1a;
+  }
+  .tag { font-size: 25px; line-height: 1.45; color: #6b6a5f; max-width: 880px; }
+  .tag b { color: #2f7d72; font-weight: 600; }
+  .tag code { font-family: "SFMono-Regular", ui-monospace, Menlo, monospace; font-size: 23px; }
+  .stripe {
+    position: absolute; left: 0; bottom: 0; width: 100%; height: 10px; z-index: 2;
+    background: linear-gradient(90deg, #2f9e8f 0 26%, #d4a017 26% 46%, #cfc8b7 46% 100%);
+  }
+</style>
+</head>
+<body>
+  <div class="banner">
+    <div class="mark">A</div>
+    <div class="row">
+      <div class="icon-tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8.4 16.6 12 8 15.6 16.6" stroke="#f4f1e9"/>
+          <path d="M9.9 13.6 H14.1" stroke="#d4a017"/>
+        </svg>
+      </div>
+      <div class="txt">
+        <div class="word">Agentomatic</div>
+        <div class="tag">An <b>AI-discovery layer</b> for your site — a <code>/.well-known</code> discovery document, machine-readable pages, and AI-crawl control.</div>
+      </div>
+    </div>
+    <div class="stripe"></div>
+  </div>
+</body>
+</html>
