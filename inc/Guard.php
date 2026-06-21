@@ -184,6 +184,19 @@ final class Guard {
 	}
 
 	/**
+	 * Whether a RAW User-Agent belongs to a protected/allow-listed agent (the
+	 * search engines that are never denied). Public companion to the internal
+	 * lowercase test, so other modules — e.g. the activity panel's threat view —
+	 * can treat exactly the same agents as trusted (one definition, no drift).
+	 *
+	 * @param string $ua Raw User-Agent.
+	 * @return bool
+	 */
+	public static function is_protected_ua( $ua ) {
+		return self::is_protected( substr( strtolower( trim( (string) $ua ) ), 0, 1000 ) );
+	}
+
+	/**
 	 * Derive a SAFE denylist token from a raw User-Agent — the substring the
 	 * activity panel's one-click "Block" appends to blocked_agents. Returns '' when
 	 * no specific, safe token can be found, so the caller never adds an over-broad

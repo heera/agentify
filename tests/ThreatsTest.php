@@ -133,12 +133,19 @@ final class ThreatsTest extends TestCase {
 		$this->assertTrue( $r['sources'][0]['flags']['spoof'], 'Most severe first.' );
 	}
 
-	public function test_a_new_but_protected_search_engine_is_flagged_yet_not_actionable() {
+	public function test_a_protected_search_engine_is_excluded_as_trusted() {
+		// Googlebot is allow-listed — never blocked, never "suspicious" — so it must
+		// not appear in the panel even when newly seen.
 		$r = $this->analyze( array( $this->source( self::GOOGLEBOT, 'Googlebot', 2, HOUR_IN_SECONDS ) ) );
-		$s = $r['sources'][0];
-		$this->assertTrue( $s['flags']['new'] );
-		$this->assertSame( '', $s['action'] );
-		$this->assertSame( 'no-token', $s['reason'] );
+		$this->assertCount( 0, $r['sources'] );
+		$this->assertSame( 0, $r['counts']['new'] );
+	}
+
+	public function test_a_new_only_browser_is_dropped_as_noise() {
+		// A one-off newly-seen browser we can't safely block isn't worth surfacing in
+		// a suspicious panel — only spoof/heavy/actionable rows make the cut.
+		$r = $this->analyze( array( $this->source( self::CHROME, 'Browser', 2, HOUR_IN_SECONDS ) ) );
+		$this->assertCount( 0, $r['sources'] );
 	}
 
 	public function test_a_heavy_no_user_agent_source_reports_the_no_ua_reason() {

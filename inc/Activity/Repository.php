@@ -236,7 +236,14 @@ final class Repository {
 		$counts = array( 'new' => 0, 'heavy' => 0, 'spoof' => 0 );
 
 		foreach ( $sources as $s ) {
-			$ua    = isset( $s['ua'] ) ? (string) $s['ua'] : '';
+			$ua = isset( $s['ua'] ) ? (string) $s['ua'] : '';
+
+			// A protected/allow-listed search engine (Googlebot, Bingbot…) is trusted
+			// by definition — never denied, never "suspicious". Keep it out entirely.
+			if ( '' !== $ua && Guard::is_protected_ua( $ua ) ) {
+				continue;
+			}
+
 			$hits  = isset( $s['hits'] ) ? (int) $s['hits'] : 0;
 			$first = isset( $s['first_seen'] ) ? strtotime( $s['first_seen'] . ' UTC' ) : 0;
 			$last  = isset( $s['last_seen'] ) ? strtotime( $s['last_seen'] . ' UTC' ) : 0;
@@ -247,16 +254,7 @@ final class Repository {
 			$is_spoof = Classifier::is_spoof( $ua );
 
 			if ( ! $is_new && ! $is_heavy && ! $is_spoof ) {
-				continue; // Not suspicious — skip.
-			}
-			if ( $is_new ) {
-				++$counts['new'];
-			}
-			if ( $is_heavy ) {
-				++$counts['heavy'];
-			}
-			if ( $is_spoof ) {
-				++$counts['spoof'];
+				continue; // Nothing flags it.
 			}
 
 			$blocked  = Guard::denies( $ua );
@@ -278,6 +276,22 @@ final class Repository {
 				$action = 'agent';
 			} else {
 				$reason = '' === trim( $ua ) ? 'no-ua' : 'no-token';
+			}
+
+			// A "new"-only source we can neither block nor flag as spoof/heavy is just
+			// noise here (a one-off new browser/script). Show only genuinely suspicious
+			// (spoof/heavy) or actionable / already-blocked rows. Count only what shows.
+			if ( ! $is_spoof && ! $is_heavy && ! $blocked && '' === $action ) {
+				continue;
+			}
+			if ( $is_new ) {
+				++$counts['new'];
+			}
+			if ( $is_heavy ) {
+				++$counts['heavy'];
+			}
+			if ( $is_spoof ) {
+				++$counts['spoof'];
 			}
 
 			$out[] = array(
