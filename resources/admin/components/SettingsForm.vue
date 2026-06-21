@@ -523,8 +523,8 @@ export default {
     <section id="ar-sec-blocking" class="ar-card">
       <h2 class="ar-card__title">Block scanners &amp; scrapers <span class="ar-field__tag">optional</span></h2>
       <p class="ar-card__lead">
-        The crawler policy above is advisory — polite agents honour it. This is enforcement:
-        refuse a request outright with <code>403 Forbidden</code> at your AI endpoints. Off by default.
+        The crawler rules above are a polite request — well-behaved bots honour them. This is the
+        hard stop: the bots below are turned away from your AI files instead of being served. Off by default.
       </p>
 
       <label class="ar-toggle">
@@ -532,7 +532,7 @@ export default {
         <span class="ar-toggle__track" aria-hidden="true"></span>
         <span class="ar-toggle__text">
           <strong>Deny blocked agents</strong>
-          <small>Return 403 instead of serving <code>discovery.json</code>, <code>llms.txt</code> and the other generated files to the agents below.</small>
+          <small>Turn the bots in the list below away — they get nothing instead of your <code>llms.txt</code>, <code>discovery.json</code> and other AI files.</small>
         </span>
       </label>
 
@@ -542,7 +542,7 @@ export default {
           <span class="ar-toggle__track" aria-hidden="true"></span>
           <span class="ar-toggle__text">
             <strong>Auto-deny spoofed / legacy-device agents</strong>
-            <small>Blocks user-agents impersonating long-dead handsets (Symbian, J2ME, old Nokia/BlackBerry…) — the ones the visit log marks “Likely spoof/scanner”. Almost always scanners.</small>
+            <small>Turn away bots that disguise themselves as ancient phones (old Nokia/BlackBerry handsets) — a classic scanner trick. These show up as “Likely spoof/scanner” in your activity log.</small>
           </span>
         </label>
 
@@ -563,21 +563,20 @@ export default {
             ⚠ Broad {{ riskyBlockedAgents.length === 1 ? 'entry' : 'entries' }}:
             <code>{{ riskyBlockedAgents.join(', ') }}</code> —
             {{ riskyBlockedAgents.length === 1 ? 'this is' : 'these are' }} broad enough to also hit real browsers or AI crawlers you may want.
-            Major search engines (Googlebot, Bingbot…) are always allowed regardless, but consider a more specific token.
+            Major search engines (Googlebot, Bingbot…) are always allowed regardless, but consider something more specific.
           </p>
           <small class="ar-field__hint">
-            Matched case-insensitively against the request's user-agent. Plain text = <strong>substring</strong>
-            (<code>SemrushBot</code> catches <code>SemrushBot/7~bl</code>); use <code>*</code> as a <strong>wildcard</strong>
-            (<code>Semrush*</code>, <code>*bot/2*</code>), or wrap in <code>/…/</code> for a <strong>regex</strong>
-            (<code>/semrushbot\/\d+/</code>). Refused with <code>403 Forbidden</code>.
+            Type part of a bot's name — capitalisation doesn't matter, and a fragment is enough
+            (<code>SemrushBot</code> also catches <code>SemrushBot/7~bl</code>). Use <code>*</code> to stand in for
+            anything (<code>Semrush*</code>, <code>*bot/2*</code>), or wrap a pattern in <code>/…/</code> for
+            <strong>advanced matching</strong> (<code>/semrushbot\/\d+/</code>).
           </small>
         </div>
 
         <p class="ar-card__note">
-          <strong>Targets the generated files only.</strong>
-          Real files on disk under <code>/.well-known/</code> (ACME certificate challenges, a hand-placed
-          security.txt) are never blocked, and your normal pages and REST API are untouched — this gates
-          only the discovery/llms documents this plugin produces.
+          <strong>Safe by design.</strong>
+          This only affects the AI files this plugin makes (like <code>llms.txt</code> and <code>discovery.json</code>).
+          Your normal pages, your real files on disk, and anything your SSL certificate needs keep working as usual.
         </p>
       </div>
     </section>
