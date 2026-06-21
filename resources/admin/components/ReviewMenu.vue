@@ -11,6 +11,10 @@ export default {
     threats: { type: Object, default: () => ({ sources: [], counts: {}, blockingOn: false }) },
     blocking: { type: Object, default: null },
     allowing: { type: Object, default: null },
+    // Whether activity logging is on. The bell is a persistent anchor whenever it
+    // is — a stable, quiet resting state (no count badge) rather than vanishing the
+    // moment the queue clears. With logging off there's nothing to watch, so hide it.
+    enabled: { type: Boolean, default: false },
   },
   emits: ['block', 'allow', 'navigate'],
   data() {
@@ -106,12 +110,12 @@ export default {
 </script>
 
 <template>
-  <div v-if="count > 0 || open" class="ar__review" :class="{ 'is-open': open }">
+  <div v-if="enabled || open" class="ar__review" :class="{ 'is-open': open, 'is-quiet': !count }">
     <button
       type="button"
       class="ar__review-btn"
       :aria-expanded="open"
-      :aria-label="`${count} client${1 === count ? '' : 's'} to review`"
+      :aria-label="count ? `${count} client${1 === count ? '' : 's'} to review` : 'Activity to review — nothing flagged'"
       @click.stop="toggle"
     >
       <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

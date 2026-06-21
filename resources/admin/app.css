@@ -174,6 +174,9 @@
 }
 .ar__review-btn:hover,
 .ar__review.is-open .ar__review-btn { color: var(--ar-ink); border-color: var(--ar-ink-faint); background: var(--ar-surface-2); }
+/* Resting state — logging on, nothing flagged: a calm anchor with a softer border
+   and no red count, so a populated queue (red badge) is what draws the eye. */
+.ar__review.is-quiet .ar__review-btn { border-color: var(--ar-line); }
 .ar__review-btn:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
 .ar__review-count {
   font-family: var(--ar-mono); font-size: 10px; font-weight: 700; line-height: 1;

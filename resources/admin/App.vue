@@ -522,6 +522,7 @@ export default {
 
       <ReviewMenu
         :threats="(activity && activity.threats) || {}"
+        :enabled="!!(activity && activity.enabled)"
         :blocking="blockingNow"
         :allowing="allowingNow"
         @block="blockAgent"
