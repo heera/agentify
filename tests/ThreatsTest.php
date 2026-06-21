@@ -130,7 +130,23 @@ final class ThreatsTest extends TestCase {
 				$this->source( self::NOKIA, 'Likely spoof/scanner', 2, HOUR_IN_SECONDS ),
 			)
 		);
-		$this->assertTrue( $r['sources'][0]['flags']['spoof'], 'Most severe first.' );
+		$this->assertTrue( $r['sources'][0]['flags']['spoof'], 'Most severe first (both unblocked).' );
+	}
+
+	public function test_an_already_blocked_row_sinks_below_an_actionable_one() {
+		// With enforcement on, the spoof is already denied (handled) while the new bot
+		// still needs a decision — so the actionable row leads despite lower severity.
+		update_option( Settings::OPTION, array( 'block_agents' => true ) ); // block_spoofed defaults true.
+		$r = $this->analyze(
+			array(
+				$this->source( self::NOKIA, 'Likely spoof/scanner', 5, HOUR_IN_SECONDS ),
+				$this->source( self::NEWBOT, 'Other bot', 3, HOUR_IN_SECONDS ),
+			),
+			array(),
+			array( 'blockingOn' => true )
+		);
+		$this->assertFalse( $r['sources'][0]['blocked'], 'Actionable (unblocked) row leads.' );
+		$this->assertTrue( $r['sources'][1]['blocked'], 'Already-blocked row sinks.' );
 	}
 
 	public function test_a_protected_search_engine_is_excluded_as_trusted() {

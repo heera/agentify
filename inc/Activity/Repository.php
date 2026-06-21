@@ -314,10 +314,15 @@ final class Repository {
 			);
 		}
 
-		// Rank: most severe first, then by raw volume.
+		// Rank for a "review" panel: rows that still need a decision lead; an
+		// already-blocked client is handled, so it sinks. Within each group, most
+		// severe first, then by raw volume.
 		usort(
 			$out,
 			static function ( $a, $b ) {
+				if ( $a['blocked'] !== $b['blocked'] ) {
+					return $a['blocked'] ? 1 : -1;
+				}
 				if ( $a['severity'] !== $b['severity'] ) {
 					return $b['severity'] - $a['severity'];
 				}
