@@ -28,6 +28,7 @@ export default {
       activity: {},
       activityLoaded: false,
       refreshingActivity: false,
+      blockingNow: null,
       entityTypes: this.boot.entityTypes || ['Person', 'Organization'],
       postTypes: this.boot.postTypes || [],
       knownTrainers: this.boot.knownTrainers || [],
@@ -401,16 +402,19 @@ export default {
       }
     },
     async blockAgent(payload) {
+      this.blockingNow = payload; // drives the per-row "Blocking…" state.
       try {
         // Returns { activity, settings }: refreshed stats (the row drops out of the
-        // "to review" list — feedback enough, no toast) plus the updated settings so
-        // the Settings denylist / toggles stay in sync without a reload.
+        // "to review" list) plus the updated settings so the Settings denylist /
+        // toggles stay in sync without a reload.
         const res = await this.api.blockAgent(payload);
         this.activity = res.activity || res;
         if (res.settings) this.syncBlockSettings(res.settings);
         this._activityBlockKey = this.blockingKeyOf(this.settings);
       } catch (e) {
         this.flash('error', e.message);
+      } finally {
+        this.blockingNow = null;
       }
     },
     // A fingerprint of just the blocking-relevant settings, to detect when the
@@ -494,6 +498,7 @@ export default {
 
       <ReviewMenu
         :threats="(activity && activity.threats) || {}"
+        :blocking="blockingNow"
         @block="blockAgent"
         @navigate="goTo"
       />

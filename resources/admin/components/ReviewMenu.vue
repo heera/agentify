@@ -9,6 +9,7 @@ export default {
   name: 'ReviewMenu',
   props: {
     threats: { type: Object, default: () => ({ sources: [], counts: {}, blockingOn: false }) },
+    blocking: { type: Object, default: null },
   },
   emits: ['block', 'navigate'],
   data() {
@@ -58,6 +59,12 @@ export default {
     },
     doBlock(s) {
       this.$emit('block', 'spoofed' === s.action ? { spoofed: true } : { ua: s.ua });
+    },
+    // Whether this row's block request is currently in flight (shows "Blocking…").
+    isBlocking(s) {
+      const b = this.blocking;
+      if (!b) return false;
+      return b.spoofed ? 'spoofed' === s.action : b.ua === s.ua;
     },
     reasonText(reason) {
       if ('no-ua' === reason) return 'No User-Agent to match';
@@ -132,9 +139,10 @@ export default {
               v-if="'agent' === s.action || 'spoofed' === s.action"
               type="button"
               class="ar-susp-block"
+              :disabled="isBlocking(s)"
               @click="doBlock(s)"
             >
-              {{ 'spoofed' === s.action ? 'Block scanners' : 'Block ' + s.token }}
+              {{ isBlocking(s) ? 'Blocking…' : ('spoofed' === s.action ? 'Block scanners' : 'Block ' + s.token) }}
             </button>
             <span v-else class="ar-susp-reason">{{ reasonText(s.reason) }}</span>
           </div>
