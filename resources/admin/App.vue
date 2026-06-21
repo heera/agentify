@@ -352,6 +352,12 @@ export default {
         this.savedSnapshot = JSON.stringify(res.settings);
         this.readiness = res.readiness || this.readiness;
         this.autoStatus = 'saved';
+        // If the save changed the blocking rules, the dashboard's "blocked" flags
+        // are now stale (e.g. a denylist entry was removed) — re-fetch so those
+        // rows reappear as actionable without a manual refresh.
+        if (this.activityLoaded && this.blockingKeyOf(res.settings) !== this._activityBlockKey) {
+          this.refreshActivity();
+        }
       } catch (e) {
         this.autoStatus = 'error';
         this.flash('error', e.message);
@@ -384,6 +390,7 @@ export default {
       try {
         this.activity = await this.api.getActivity();
         this.activityLoaded = true;
+        this._activityBlockKey = this.blockingKeyOf(this.settings);
       } catch (e) {
         this.flash('error', e.message);
       } finally {
@@ -403,18 +410,24 @@ export default {
         // Returns { activity, settings }: refreshed stats (so the flagged row flips
         // to "Blocked" in place) plus the updated settings, so the Settings tab's
         // denylist / toggles stay in sync without a reload or a second request.
+        const wasOff = !this.settings.block_agents;
         const res = await this.api.blockAgent(payload);
         this.activity = res.activity || res;
         if (res.settings) this.syncBlockSettings(res.settings);
-        this.flash(
-          'success',
-          payload.spoofed
-            ? 'Spoofed / scanner user-agents are now blocked.'
-            : 'Client blocked — it now gets a 403 at your endpoints.'
-        );
+        this._activityBlockKey = this.blockingKeyOf(this.settings);
+        const base = payload.spoofed
+          ? 'Spoofed / scanner user-agents are now blocked.'
+          : 'Client blocked — it now gets a 403 at your endpoints.';
+        this.flash('success', wasOff ? `${base} Blocking is now on.` : base);
       } catch (e) {
         this.flash('error', e.message);
       }
+    },
+    // A fingerprint of just the blocking-relevant settings, to detect when the
+    // dashboard's "blocked" flags have gone stale after a settings change.
+    blockingKeyOf(s) {
+      s = s || {};
+      return JSON.stringify([ !!s.block_agents, !!s.block_spoofed, (s.blocked_agents || []).slice().sort() ]);
     },
     // Reflect a Dashboard block into the live Settings state + saved snapshot, so the
     // Settings tab shows the new denylist entry / armed toggle immediately — without

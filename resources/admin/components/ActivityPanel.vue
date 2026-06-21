@@ -9,7 +9,7 @@ export default {
   },
   emits: ['refresh', 'clear', 'navigate', 'block'],
   data() {
-    return { feedMore: false };
+    return { feedMore: false, confirmKey: null };
   },
   mounted() {
     window.addEventListener('resize', this.updateFeedHint);
@@ -98,16 +98,17 @@ export default {
         this.$emit('clear');
       }
     },
-    // One-click block from a flagged row. Confirms first (it also turns
-    // enforcement on), then emits the payload the /activity/block endpoint wants:
-    // {spoofed:true} arms the whole scanner class, {ua} blocks a derived token.
-    blockSource(s) {
-      const msg = 'spoofed' === s.action
-        ? 'Block spoofed / scanner user-agents? They will get a 403 at your discovery & llms endpoints. This also turns agent blocking on.'
-        : `Block "${s.token}"? Requests with this user-agent will get a 403 at your discovery & llms endpoints. This also turns agent blocking on.`;
-      if (window.confirm(msg)) {
-        this.$emit('block', 'spoofed' === s.action ? { spoofed: true } : { ua: s.ua });
-      }
+    // Block from a flagged row is a two-step INLINE confirm (no native dialog):
+    // the first click arms the row, then Confirm/Cancel appear in place.
+    armBlock(key) {
+      this.confirmKey = key;
+    },
+    cancelBlock() {
+      this.confirmKey = null;
+    },
+    doBlock(s) {
+      this.confirmKey = null;
+      this.$emit('block', 'spoofed' === s.action ? { spoofed: true } : { ua: s.ua });
     },
     // Plain-English note for a flagged row that isn't safely one-click-blockable.
     reasonText(reason) {
@@ -264,8 +265,15 @@ export default {
             </div>
             <div class="ar-susp-row__action">
               <span v-if="s.blocked" class="ar-susp-blocked">✓ Blocked</span>
-              <button v-else-if="'agent' === s.action" type="button" class="ar-susp-block" @click="blockSource(s)">Block {{ s.token }}</button>
-              <button v-else-if="'spoofed' === s.action" type="button" class="ar-susp-block" @click="blockSource(s)">Block scanners</button>
+              <template v-else-if="'agent' === s.action || 'spoofed' === s.action">
+                <span v-if="confirmKey === i" class="ar-susp-confirm">
+                  <button type="button" class="ar-susp-block ar-susp-block--go" @click="doBlock(s)">Confirm</button>
+                  <button type="button" class="ar-susp-cancel" @click="cancelBlock">Cancel</button>
+                </span>
+                <button v-else type="button" class="ar-susp-block" @click="armBlock(i)">
+                  {{ 'spoofed' === s.action ? 'Block scanners' : 'Block ' + s.token }}
+                </button>
+              </template>
               <span v-else class="ar-susp-reason">{{ reasonText(s.reason) }}</span>
             </div>
           </li>
