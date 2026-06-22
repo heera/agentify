@@ -36,6 +36,7 @@ export function createApi(boot) {
     getReadiness: () => request('/readiness'),
     getDiscoveryHub: () => request('/discovery/hub'),
     getActivity: () => request('/activity'),
+    getActivityDay: (date) => request(`/activity/day?date=${encodeURIComponent(date)}`),
     clearActivity: () => request('/activity', { method: 'DELETE' }),
     blockAgent: (payload) =>
       request('/activity/block', { method: 'POST', body: JSON.stringify(payload) }),

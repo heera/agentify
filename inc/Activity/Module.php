@@ -65,6 +65,32 @@ final class Module {
 
 		register_rest_route(
 			'agentimus/v1',
+			'/activity/day',
+			array(
+				'methods'             => 'GET',
+				'permission_callback' => array( $this, 'can_manage' ),
+				'callback'            => function ( \WP_REST_Request $request ) {
+					$date = (string) $request->get_param( 'date' );
+					if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
+						return new \WP_Error(
+							'agentimus_bad_date',
+							__( 'A valid date (YYYY-MM-DD) is required.', 'agentimus' ),
+							array( 'status' => 400 )
+						);
+					}
+					return rest_ensure_response( Repository::day_requests( $date ) );
+				},
+				'args'                => array(
+					'date' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'agentimus/v1',
 			'/activity/block',
 			array(
 				'methods'             => 'POST',

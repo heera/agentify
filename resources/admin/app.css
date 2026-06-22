@@ -716,7 +716,20 @@ select.ar-input {
   background: linear-gradient(to bottom, rgba(255, 253, 247, 0), var(--ar-surface) 80%);
 }
 .ar-modal__fade.is-visible { opacity: 1; }
-.ar-modal__chev { color: var(--ar-ink-faint); }
+/* The chevron is a real button: click to nudge the scroll body down (it also
+   scrolls on its own). The fade gradient stays click-through; the button
+   re-enables pointer events. Disabled = nothing more below. */
+.ar-modal__fade-btn {
+  pointer-events: auto; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; margin: 0;
+  border: 0; border-radius: 999px; background: transparent;
+  color: var(--ar-ink-faint); transition: color 0.15s ease, background 0.15s ease;
+}
+.ar-modal__fade-btn:hover { color: var(--ar-ink); background: var(--ar-surface-2); }
+.ar-modal__fade-btn:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+.ar-modal__fade-btn:disabled { pointer-events: none; }
+.ar-modal__chev { display: block; }
 .ar-modal__title { margin: 0 0 8px; font-size: 19px; letter-spacing: -0.01em; color: var(--ar-ink); }
 .ar-modal__lead { margin: 0; font-size: 13px; line-height: 1.55; color: var(--ar-ink-soft); }
 
@@ -1018,15 +1031,114 @@ select.ar-input {
 .ar-act-stats { margin-top: 4px; }
 
 /* Daily bars */
+.ar-act-sparkwrap { position: relative; margin: 18px 0 6px; }
 .ar-act-spark {
-  display: flex; align-items: flex-end; gap: 5px; height: 64px; margin: 18px 0 6px;
+  display: flex; align-items: flex-end; gap: 3px; height: 64px; margin: 0;
 }
-.ar-act-bar { flex: 1 1 0; display: flex; align-items: flex-end; height: 100%; }
+/* Each bar is a button: click it to drill the recent feed into that day. */
+.ar-act-bar {
+  flex: 1 1 0; display: flex; align-items: flex-end; height: 100%;
+  appearance: none; -webkit-appearance: none; padding: 0; border: 0; background: none;
+  font: inherit; cursor: pointer; border-radius: 3px 3px 0 0;
+}
+.ar-act-bar:hover .ar-act-bar__fill { filter: brightness(0.92); }
+.ar-act-bar:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
 .ar-act-bar__fill {
   width: 100%; min-height: 2px; border-radius: 2px 2px 0 0;
-  background: var(--ar-accent); transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  background: var(--ar-accent); transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter 0.2s ease;
 }
 .ar-act-bar__fill.is-zero { background: var(--ar-line); }
+/* The selected day's bar is highlighted (darker, richer) so it stands out —
+   the other bars keep their normal colour rather than washing out. */
+.ar-act-bar.is-active .ar-act-bar__fill { filter: brightness(0.7); }
+
+/* Styled hover tooltip, floating above the bars with a downward caret. JS sets
+   `left` (clamped centre) on the body and `left` on the caret (so it keeps
+   pointing at the bar even when the body is clamped at an edge). */
+/* left stays 0 and the whole tooltip is moved via transform, so its width is
+   computed against the full chart (not the gap to the right edge) — otherwise a
+   right-side bar squeezes the tooltip narrow and the text wraps weirdly. */
+.ar-act-tip {
+  position: absolute; bottom: calc(100% + 8px); left: 0;
+  z-index: 6; pointer-events: none;
+  display: grid; gap: 1px; width: max-content; max-width: 240px; padding: 8px 11px;
+  background: var(--ar-ink); color: var(--ar-surface);
+  border-radius: 7px; box-shadow: 0 10px 24px -10px rgba(27, 25, 19, 0.55);
+  font-size: 12px; line-height: 1.45;
+}
+.ar-act-tip__date { font-family: var(--ar-mono); font-size: 10.5px; letter-spacing: 0.04em; opacity: 0.72; white-space: nowrap; }
+.ar-act-tip__hits { font-weight: 600; white-space: nowrap; }
+.ar-act-tip__top { opacity: 0.82; }
+.ar-act-tip__caret {
+  position: absolute; top: 100%; left: 0; transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+  border-top: 6px solid var(--ar-ink);
+}
+.ar-tip-enter-active, .ar-tip-leave-active { transition: opacity 0.12s ease; }
+.ar-tip-enter-from, .ar-tip-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .ar-tip-enter-active, .ar-tip-leave-active { transition: none; }
+}
+
+/* The modal lists every hit individually (ungrouped), each with its exact time.
+   Reuses the feed cell styles (agent/endpoint/UA) in its own 4-column grid; the
+   modal body owns the scroll. */
+/* Day-report modal: a wider panel; header with prev/next + a day dropdown. */
+.ar-modal__panel--day { max-width: 640px; }
+.ar-day-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 12px; margin-bottom: 8px; flex-wrap: wrap; }
+.ar-day-head .ar-modal__title { margin: 0; }
+.ar-day-nav { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.ar-day-select {
+  height: 30px; max-width: 220px; min-width: 0;
+  padding: 0 8px; border: 1px solid var(--ar-line-strong); border-radius: 7px;
+  background: var(--ar-surface); color: var(--ar-ink); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.ar-day-select:hover:not(:disabled) { background: var(--ar-surface-2); }
+.ar-day-select:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+.ar-day-select:disabled { opacity: 0.5; cursor: default; }
+.ar-day-nav__btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0;
+  border: 1px solid var(--ar-line-strong); border-radius: 7px; background: var(--ar-surface);
+  color: var(--ar-ink-soft); cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.ar-day-nav__btn:hover:not(:disabled) { color: var(--ar-ink); background: var(--ar-surface-2); }
+.ar-day-nav__btn:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+.ar-day-nav__btn:disabled { opacity: 0.4; cursor: default; }
+/* The day report's two-column breakdown (by client / by endpoint), above the log. */
+.ar-daybreak { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; }
+.ar-daybreak__h {
+  margin: 0 0 9px; font-family: var(--ar-mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ar-ink-faint); font-weight: 600;
+  display: flex; align-items: baseline; gap: 6px;
+}
+.ar-daybreak__n { font-size: 11px; color: var(--ar-ink-soft); letter-spacing: 0; text-transform: none; font-weight: 400; }
+.ar-daylog { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--ar-line); }
+@media (max-width: 600px) {
+  .ar-daybreak { grid-template-columns: 1fr; gap: 14px; }
+}
+
+.ar-act-log { margin: 0; padding: 0; list-style: none; }
+.ar-act-log li {
+  display: grid; align-items: center; gap: 10px; padding: 7px 2px;
+  grid-template-columns: max-content minmax(0, max-content) minmax(0, 1fr) max-content;
+  border-bottom: 1px solid var(--ar-line);
+}
+.ar-act-log li:last-child { border-bottom: 0; }
+.ar-act-log__at {
+  font-family: var(--ar-mono); font-size: 11px; color: var(--ar-ink-faint);
+  white-space: nowrap; text-align: right;
+}
+/* Loading / error / empty states live in the modal's content area, centered,
+   with enough height that the panel doesn't jump in size when rows arrive. */
+.ar-act-log__state {
+  margin: 0; display: flex; align-items: center; justify-content: center;
+  min-height: 180px; padding: 24px; text-align: center;
+  font-size: 13px; color: var(--ar-ink-soft);
+}
+.ar-act-log__state.is-error { color: var(--ar-bad); }
 .ar-act-sparkcap {
   margin: 0; font-family: var(--ar-mono); font-size: 10px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--ar-ink-faint);
@@ -1040,6 +1152,7 @@ select.ar-input {
 .ar-act-rank__track { height: 7px; background: var(--ar-surface-2); border-radius: 999px; overflow: hidden; }
 .ar-act-rank__bar { display: block; height: 100%; background: var(--ar-accent); border-radius: 999px; }
 .ar-act-rank__n { font-family: var(--ar-mono); font-size: 12px; color: var(--ar-ink-soft); text-align: right; min-width: 24px; }
+.ar-act-more { margin: 11px 0 0; font-size: 11px; color: var(--ar-ink-faint); }
 
 /* Recent feed */
 /* Capped, scrollable feed with a bottom fade cue (same pattern as the modal). */
@@ -1047,7 +1160,11 @@ select.ar-input {
 /* padding-right is a gutter for the scroll thumb: macOS overlay scrollbars sit
    on top of content, so without it the bar overlaps the right-aligned time/count
    column. scrollbar-gutter keeps the layout stable for classic scrollbars too. */
-.ar-act-feed { margin: 0; padding: 0 14px 0 0; list-style: none; display: grid; gap: 0; border-top: 1px solid var(--ar-line); max-height: 340px; overflow-y: auto; scrollbar-gutter: stable; }
+/* The Requests card's scroll container owns the cap/scroll/border/gutter; the
+   list inside (grouped feed OR per-day log) is just a grid. */
+.ar-act-reqs { margin: 0; border-top: 1px solid var(--ar-line); max-height: 340px; overflow-y: auto; scrollbar-gutter: stable; padding-right: 14px; }
+.ar-act-reqs__empty { padding: 12px 0; }
+.ar-act-feed { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; }
 .ar-act-feedfade {
   position: absolute; left: 0; right: 0; bottom: 0; height: 44px;
   display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px;

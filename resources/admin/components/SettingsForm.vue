@@ -226,6 +226,12 @@ export default {
       const el = this.$refs.resetBody;
       this.scrollMore = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 4;
     },
+    scrollResetBody() {
+      const el = this.$refs.resetBody;
+      if (!el) return;
+      const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el.scrollBy({ top: Math.round(el.clientHeight * 0.8), behavior: reduce ? 'auto' : 'smooth' });
+    },
     doReset() {
       this.showReset = false;
       this.$emit('reset');
@@ -820,8 +826,10 @@ export default {
               </div>
                 </div>
               </div>
-              <div class="ar-modal__fade" :class="{ 'is-visible': scrollMore }" aria-hidden="true">
-                <svg viewBox="0 0 16 16" class="ar-modal__chev" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4" /></svg>
+              <div class="ar-modal__fade" :class="{ 'is-visible': scrollMore }">
+                <button type="button" class="ar-modal__fade-btn" :disabled="!scrollMore" aria-label="Scroll down for more" @click="scrollResetBody">
+                  <svg viewBox="0 0 16 16" class="ar-modal__chev" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+                </button>
               </div>
             </div>
 

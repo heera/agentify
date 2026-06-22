@@ -16,11 +16,9 @@ defined( 'ABSPATH' ) || exit;
 
 final class Repository {
 
-	/** Reporting window for aggregates. */
+	/** Default reporting window — and the default retention: the dashboard reports
+	 *  on exactly the days it keeps (filter `agentimus_activity_retention_days`). */
 	const WINDOW_DAYS = 30;
-
-	/** Sparkline span. */
-	const DAILY_DAYS = 14;
 
 	/** A source first seen within this many hours is flagged "new". */
 	const NEW_AGENT_HOURS = 48;
@@ -35,6 +33,24 @@ final class Repository {
 	const THREATS_LIMIT = 12;
 
 	/**
+	 * Days of activity kept — and therefore reported on. Filterable; defaults to
+	 * {@see WINDOW_DAYS}. The daily chart, the aggregate window and the prune cutoff
+	 * all derive from this, so "what you see" always equals "what's retained".
+	 *
+	 * @return int
+	 */
+	private static function retention_days() {
+		/**
+		 * Filter the activity-log retention, in days. Governs the daily chart span,
+		 * the aggregate reporting window, and the prune cutoff.
+		 *
+		 * @param int $days Default 30.
+		 */
+		$days = (int) apply_filters( 'agentimus_activity_retention_days', self::WINDOW_DAYS );
+		return max( 1, $days );
+	}
+
+	/**
 	 * Assemble the dashboard payload.
 	 *
 	 * @param Settings $settings Settings store.
@@ -44,13 +60,14 @@ final class Repository {
 		global $wpdb;
 		$table = Table::name();
 
-		$today = gmdate( 'Y-m-d 00:00:00' );
-		$week  = gmdate( 'Y-m-d H:i:s', time() - 7 * DAY_IN_SECONDS );
-		$month = gmdate( 'Y-m-d H:i:s', time() - self::WINDOW_DAYS * DAY_IN_SECONDS );
+		$window = self::retention_days();
+		$today  = gmdate( 'Y-m-d 00:00:00' );
+		$week   = gmdate( 'Y-m-d H:i:s', time() - 7 * DAY_IN_SECONDS );
+		$month  = gmdate( 'Y-m-d H:i:s', time() - $window * DAY_IN_SECONDS );
 
 		return array(
 			'enabled'    => (bool) $settings->enabled( 'enable_activity' ),
-			'window'     => self::WINDOW_DAYS,
+			'window'     => $window,
 			'totals'     => array(
 				'today'  => self::count_since( $today ),
 				'week'   => self::count_since( $week ),
@@ -104,29 +121,85 @@ final class Repository {
 		);
 	}
 
+	/** Per-day detail keeps at most this many rows per dimension; the rest roll
+	 *  into a "+N more" so the inline card never grows with traffic. */
+	const DAY_TOP = 5;
+
 	/**
-	 * Hits per day for the sparkline, gap-filled so every day is present.
+	 * Hits per day for the sparkline, gap-filled so every day is present. Each day
+	 * also carries a compact breakdown — its top clients and top endpoints (capped
+	 * at {@see DAY_TOP}) plus the *distinct* count of each — so the chart can show a
+	 * "who/what drove this day" detail card without ever ballooning: a day with 50
+	 * distinct endpoints still returns 5 rows and `endpointCount = 50`.
 	 *
-	 * @return array<int,array{date:string,hits:int}>
+	 * @return array<int,array{date:string,hits:int,clients:array,clientCount:int,endpoints:array,endpointCount:int}>
 	 */
 	private static function daily() {
 		global $wpdb;
 		$table = Table::name();
-		$since = gmdate( 'Y-m-d 00:00:00', time() - ( self::DAILY_DAYS - 1 ) * DAY_IN_SECONDS );
+		$days  = self::retention_days();
+		$since = gmdate( 'Y-m-d 00:00:00', time() - ( $days - 1 ) * DAY_IN_SECONDS );
 
 		// phpcs:disable WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is our own prefix-derived table name; the value ($since) is bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare( "SELECT DATE(hit_at) AS d, COUNT(*) AS c FROM $table WHERE hit_at >= %s GROUP BY DATE(hit_at)", $since ),
 			OBJECT_K
 		);
+		// Per-day breakdowns, each ordered by count DESC across all days — so the
+		// first rows bucketed into a given day are that day's busiest (a global
+		// DESC sort preserves the order within each day's subgroup too).
+		$client_rows   = $wpdb->get_results(
+			$wpdb->prepare( "SELECT DATE(hit_at) AS d, agent AS label, COUNT(*) AS c FROM $table WHERE hit_at >= %s GROUP BY DATE(hit_at), agent ORDER BY c DESC", $since ),
+			ARRAY_A
+		);
+		$endpoint_rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT DATE(hit_at) AS d, endpoint AS label, COUNT(*) AS c FROM $table WHERE hit_at >= %s GROUP BY DATE(hit_at), endpoint ORDER BY c DESC", $since ),
+			ARRAY_A
+		);
 		// phpcs:enable WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
+		$by_client   = self::bucket_breakdown( $client_rows );
+		$by_endpoint = self::bucket_breakdown( $endpoint_rows );
+		$empty       = array( 'top' => array(), 'count' => 0 );
+
 		$out = array();
-		for ( $i = self::DAILY_DAYS - 1; $i >= 0; $i-- ) {
-			$date  = gmdate( 'Y-m-d', time() - $i * DAY_IN_SECONDS );
-			$out[] = array( 'date' => $date, 'hits' => isset( $rows[ $date ] ) ? (int) $rows[ $date ]->c : 0 );
+		for ( $i = $days - 1; $i >= 0; $i-- ) {
+			$date = gmdate( 'Y-m-d', time() - $i * DAY_IN_SECONDS );
+			$c    = isset( $by_client[ $date ] ) ? $by_client[ $date ] : $empty;
+			$e    = isset( $by_endpoint[ $date ] ) ? $by_endpoint[ $date ] : $empty;
+			$out[] = array(
+				'date'          => $date,
+				'hits'          => isset( $rows[ $date ] ) ? (int) $rows[ $date ]->c : 0,
+				'clients'       => $c['top'],
+				'clientCount'   => $c['count'],
+				'endpoints'     => $e['top'],
+				'endpointCount' => $e['count'],
+			);
 		}
 		return $out;
+	}
+
+	/**
+	 * Fold count-ordered {d,label,c} rows into per-day {top: first DAY_TOP rows,
+	 * count: distinct labels}. Input is sorted by count DESC, so the kept rows are
+	 * each day's busiest, while `count` still reflects the full distinct total.
+	 *
+	 * @param array $rows Ordered breakdown rows.
+	 * @return array<string,array{top:array<int,array{label:string,hits:int}>,count:int}>
+	 */
+	private static function bucket_breakdown( $rows ) {
+		$by = array();
+		foreach ( (array) $rows as $r ) {
+			$date = (string) $r['d'];
+			if ( ! isset( $by[ $date ] ) ) {
+				$by[ $date ] = array( 'top' => array(), 'count' => 0 );
+			}
+			++$by[ $date ]['count'];
+			if ( count( $by[ $date ]['top'] ) < self::DAY_TOP ) {
+				$by[ $date ]['top'][] = array( 'label' => (string) $r['label'], 'hits' => (int) $r['c'] );
+			}
+		}
+		return $by;
 	}
 
 	/**
@@ -154,6 +227,53 @@ final class Repository {
 				);
 			},
 			(array) $rows
+		);
+	}
+
+	/**
+	 * Every hit recorded on a given GMT calendar date, newest first and capped —
+	 * the *full* day, not the recent window {@see recent()} is limited to. Powers
+	 * the dashboard's per-day "View requests" modal.
+	 *
+	 * @param string $date  GMT date, 'Y-m-d'.
+	 * @param int    $limit Max rows to return.
+	 * @return array{date:string,total:int,rows:array<int,array{endpoint:string,agent:string,ua:string,at:string}>,capped:bool}
+	 */
+	public static function day_requests( $date, $limit = 500 ) {
+		global $wpdb;
+		$table = Table::name();
+		$limit = max( 1, min( 2000, (int) $limit ) );
+		// Half-open range on hit_at (indexed) instead of DATE(hit_at) = date.
+		$start = $date . ' 00:00:00';
+		$end   = gmdate( 'Y-m-d 00:00:00', strtotime( $date . ' UTC' ) + DAY_IN_SECONDS );
+
+		// phpcs:disable WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is our own prefix-derived table name; the values are bound via prepare().
+		$total = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM $table WHERE hit_at >= %s AND hit_at < %s", $start, $end )
+		);
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT endpoint, agent, ua, hit_at FROM $table WHERE hit_at >= %s AND hit_at < %s ORDER BY id DESC LIMIT %d", $start, $end, $limit ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter
+
+		$out = array_map(
+			static function ( $r ) {
+				return array(
+					'endpoint' => (string) $r['endpoint'],
+					'agent'    => (string) $r['agent'],
+					'ua'       => (string) $r['ua'],
+					'at'       => gmdate( 'c', strtotime( $r['hit_at'] . ' UTC' ) ),
+				);
+			},
+			(array) $rows
+		);
+
+		return array(
+			'date'   => (string) $date,
+			'total'  => $total,
+			'rows'   => $out,
+			'capped' => $total > count( $out ),
 		);
 	}
 
@@ -343,15 +463,8 @@ final class Repository {
 	 */
 	public static function prune() {
 		global $wpdb;
-		$table = Table::name();
-
-		/**
-		 * Filter the activity-log retention in days.
-		 *
-		 * @param int $days Default 30.
-		 */
-		$days   = (int) apply_filters( 'agentimus_activity_retention_days', self::WINDOW_DAYS );
-		$cutoff = gmdate( 'Y-m-d H:i:s', time() - max( 1, $days ) * DAY_IN_SECONDS );
+		$table  = Table::name();
+		$cutoff = gmdate( 'Y-m-d H:i:s', time() - self::retention_days() * DAY_IN_SECONDS );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM $table WHERE hit_at < %s", $cutoff ) ); // phpcs:ignore WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is our own prefix-derived table name; the value is bound via prepare().
 	}
 

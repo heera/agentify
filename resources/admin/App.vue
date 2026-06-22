@@ -599,6 +599,7 @@ export default {
           :summary="dashSummary"
           :loaded="activityLoaded"
           :refreshing="refreshingActivity"
+          :api="api"
           @refresh="refreshActivity"
           @clear="clearActivity"
           @navigate="goTo"
