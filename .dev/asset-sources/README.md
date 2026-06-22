@@ -1,40 +1,55 @@
-# WordPress.org listing assets
+# Asset-generation sources (dev only)
 
-The wp.org plugin-directory assets for **Agentimus** — the icon, banner and
-screenshots shown on the listing page. They live here (and are excluded from the
-distributed plugin via `.distignore`) because they are *directory* assets, not
-plugin code: at publish time they go into the SVN `assets/` directory, never into
-`trunk/`. The official deploy actions (e.g. `10up/action-wordpress-plugin-asset-update`)
-read this `.wordpress-org/` directory.
+Scripts and fixtures used to regenerate the WordPress.org **listing assets** in
+`../../.wordpress-org/` (the icon, banner and screenshots shown on the plugin
+page). This whole `.dev/` directory is excluded from the published plugin via
+`.distignore`, so nothing here ships to users — it lives in the repo only so the
+listing assets stay reproducible and in one place.
 
-## Files
-- `icon-128x128.png`, `icon-256x256.png`, `icon-512x512.png` — the "A" mark.
-- `banner-772x250.png`, `banner-1544x500.png` — listing banner (1x + retina).
-- `screenshot-1.png` … `screenshot-4.png` — admin screens, in `readme.txt` order:
-  1. Dashboard  2. Settings  3. Readiness  4. Discovery
+The listing images themselves live in `../../.wordpress-org/`:
+`icon-128x128.png` / `icon-256x256.png` / `icon-512x512.png`,
+`banner-772x250.png` / `banner-1544x500.png`, and
+`screenshot-1.png` … `screenshot-6.png`. Those are what CI publishes to SVN.
 
-## How they were generated (`sources/`)
-- **Banner** — `sources/banner.html` rendered with headless Chrome at 1544×500,
-  then downscaled to 772×250. Uses an inline vector of the "A" tile.
-- **Screenshots** — the *real* built admin app (`assets/admin/app.js` + `app.css`)
-  rendered through `sources/harness.html`, which:
-  - injects `window.AgentimusData` from a wp-cli reflection dump of
-    `Admin::bootstrap_data()` (`sources/dump_bootstrap.php`; the site host is
-    rewritten to `heera.it`),
-  - stubs the `/activity` REST call with sample data (`sources/gen_activity.py`),
-  - is loaded once per tab via the URL hash, captured with headless Chrome, then
-    trimmed of trailing background (`sources/trim.py`).
-  - `sources/enrich_identity.php` / `restore_identity.php` temporarily fill the
-    local identity (bio / expertise) for the capture, then revert it.
-  - **`screenshot-2` (Settings) is cropped** to 1440×1820: the Settings page is
-    ~4350px tall fully expanded (Identity, Security, Features, Crawler policy,
-    Content types, REST APIs, Provider integrations), so the capture keeps only the
-    top — Identity + Security + Features — instead of a 4000px strip. Render with a
-    tall window (e.g. 1440×6000) and **crop**, not trim. `trim.py` only trims
-    correctly when the window is taller than the content; otherwise it samples a
-    content pixel as the background and returns the full (un-trimmed) window height.
+## Regenerate the screenshots
 
-To regenerate after a UI change: `npm run build`, then re-run the steps above.
-(Paths inside the source files are local to the author's machine — adjust them
-before re-running.) Alternatively, replace the PNGs with real captures from a
-live admin — just keep the file names.
+They are real renders of the built admin app — not mockups — so the build must
+exist first.
+
+```bash
+# from the plugin root:
+npm run build                 # builds assets/admin/app.{js,css}
+npm i -D puppeteer-core        # one-off; drives your installed Chrome (not committed)
+node .dev/asset-sources/render-screenshots.mjs
+```
+
+Writes `screenshot-1.png` … `screenshot-6.png` into `../../.wordpress-org/`.
+Chrome elsewhere / non-macOS:
+`CHROME=/path/to/chrome node .dev/asset-sources/render-screenshots.mjs`.
+
+The 6 shots, in `readme.txt` order:
+1. Dashboard · 2. Settings (Identity + Security + Features) · 3. Readiness ·
+4. Discovery · 5. Crawler policy + Block scanners · 6. "Activity to review" bell.
+
+### Pieces
+- **`render-screenshots.mjs`** — opens each tab via the URL hash, clips each
+  section (and clicks the bell open for shot 6), 1440px wide. Self-contained:
+  paths are derived from its own location.
+- **`harness.html`** — loads the built app via relative paths and stubs the
+  `/activity` REST call from `window.__ACTIVITY__`.
+- **`data.js`** — the sample fixture. Edit it to change what the shots show:
+  `AgentimusData` (identity, readiness, discovery), `__ACTIVITY__` (the log),
+  `__ACTIVITY__.threats` (drives the nav review-bell in shots 5/6), and the
+  `block_agents`/`block_spoofed`/`blocked_agents`/`allowed_agents` settings
+  (populate the Settings crawler section in shot 5).
+
+## Regenerate the banner
+`banner.html` rendered headless at 1544×500, then downscaled to 772×250 → the two
+`banner-*.png`.
+
+## Author-local helpers (optional)
+`dump_bootstrap.php` (dump the live `Admin::bootstrap_data()` to seed `data.js`),
+`gen_activity.py` (build a sample activity payload), `trim.py` (crop trailing
+background), `enrich_identity.php` / `restore_identity.php` (temporarily fill the
+local identity for a *live* capture, then revert). The `render-screenshots.mjs`
++ `data.js` path above is self-contained and preferred over these.
