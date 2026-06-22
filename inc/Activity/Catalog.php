@@ -119,4 +119,67 @@ final class Catalog {
 		}
 		return null;
 	}
+
+	/**
+	 * Best-effort guidance for an UNKNOWN crawler (one {@see identify()} doesn't
+	 * recognise), so an owner still has somewhere to look. Pure — no DB, no time().
+	 *
+	 *  - `name`   : the bot's product token parsed from the UA (e.g. "SomeNewBot"),
+	 *               a better row title than the generic classifier label.
+	 *  - `url`    : the "+https://…" the crawler declares in its OWN User-Agent, if
+	 *               any. This is the client's CLAIM, not verified (a spoofer can put
+	 *               anything here) — the UI labels it so and shows the host. Only
+	 *               http(s) is accepted and the value is sanitised before output.
+	 *  - `host`   : that URL's host (sans www), so the UI can show where it leads.
+	 *  - `lookup` : a web search to investigate, when there's a name/host to search.
+	 *
+	 * @param string $ua Raw User-Agent.
+	 * @return array{name:string,url:string,host:string,lookup:string}
+	 */
+	public static function self_declared( $ua ) {
+		$ua  = (string) $ua;
+		$out = array( 'name' => '', 'url' => '', 'host' => '', 'lookup' => '' );
+		if ( '' === trim( $ua ) ) {
+			return $out;
+		}
+
+		// The "+https://…" many well-behaved crawlers include. Attacker-controlled,
+		// so require an http(s) scheme and sanitise before it can become a link.
+		if ( preg_match( '~\+\s*(https?://[^\s)\]};,"\']+)~i', $ua, $m ) ) {
+			$url = esc_url_raw( rtrim( $m[1], '.,;:)' ) );
+			if ( '' !== $url && preg_match( '~^https?://~i', $url ) ) {
+				$out['url']  = $url;
+				$host        = (string) wp_parse_url( $url, PHP_URL_HOST );
+				$out['host'] = '' !== $host ? preg_replace( '~^www\.~i', '', $host ) : '';
+			}
+		}
+
+		// A "Name/version" product token — preferring one that looks like a bot,
+		// skipping browser noise — for the row title and the search query.
+		if ( preg_match_all( '~([A-Za-z][A-Za-z0-9._-]{1,40})/[0-9]~', $ua, $mm ) ) {
+			$skip  = array( 'mozilla', 'applewebkit', 'khtml', 'gecko', 'safari', 'chrome', 'version', 'mobile', 'edg', 'opr', 'firefox', 'crios', 'fxios' );
+			$names = array();
+			foreach ( $mm[1] as $n ) {
+				if ( ! in_array( strtolower( $n ), $skip, true ) ) {
+					$names[] = $n;
+				}
+			}
+			foreach ( $names as $n ) {
+				if ( preg_match( '~bot|crawl|spider|agent~i', $n ) ) {
+					$out['name'] = $n;
+					break;
+				}
+			}
+			if ( '' === $out['name'] && ! empty( $names ) ) {
+				$out['name'] = $names[0];
+			}
+		}
+
+		$q = '' !== $out['name'] ? $out['name'] : $out['host'];
+		if ( '' !== $q ) {
+			$out['lookup'] = 'https://duckduckgo.com/?q=' . rawurlencode( $q . ' crawler bot' );
+		}
+
+		return $out;
+	}
 }

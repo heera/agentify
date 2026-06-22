@@ -87,7 +87,7 @@ export default {
     // A recognised crawler's real name (ShapBot, GPTBot) wins over the generic
     // classifier label ("Other bot"), so the row title says who it actually is.
     rowTitle(s) {
-      return (s.known && s.known.name) || s.agent;
+      return (s.known && s.known.name) || (s.guide && s.guide.name) || s.agent;
     },
     // Plain-English category for a recognised crawler — what an owner needs to
     // judge it, without knowing the token: an AI crawler is a real choice to make.
@@ -156,6 +156,14 @@ export default {
               <span class="ar-susp-kind" :class="'is-' + s.known.kind">{{ kindLabel(s.known.kind) }}</span>
               <span class="ar-susp-row__by">{{ s.known.operator }}</span>
               <a v-if="s.known.url" class="ar-susp-row__learn" :href="s.known.url" target="_blank" rel="noopener noreferrer">what is this?</a>
+            </div>
+            <div v-else-if="s.guide && (s.guide.url || s.guide.lookup)" class="ar-susp-row__known">
+              <template v-if="s.guide.url">
+                <span class="ar-susp-row__by">Self-declared</span>
+                <a class="ar-susp-row__learn" :href="s.guide.url" target="_blank" rel="noopener noreferrer nofollow" :title="'The page this client points to in its own User-Agent — not verified, open with care.'">{{ s.guide.host || 'its site' }}</a>
+                <span class="ar-susp-row__unverified">not verified</span>
+              </template>
+              <a v-else class="ar-susp-row__learn" :href="s.guide.lookup" target="_blank" rel="noopener noreferrer nofollow" title="Search the web to identify this crawler">Look it up</a>
             </div>
             <code class="ar-susp-row__ua" :title="s.ua">{{ s.ua || 'No User-Agent' }}</code>
             <div class="ar-susp-row__meta">

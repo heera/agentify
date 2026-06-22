@@ -414,10 +414,14 @@ final class Repository {
 				++$counts['spoof'];
 			}
 
+			$known   = Catalog::identify( $ua );
 			$out[] = array(
 				'ua'        => substr( $ua, 0, 255 ),
 				'agent'     => isset( $s['agent'] ) ? (string) $s['agent'] : '',
-				'known'     => Catalog::identify( $ua ),
+				'known'     => $known,
+				// For an unknown client, give the owner somewhere to look: its own
+				// self-declared (+URL) page, else a web search. Null when recognised.
+				'guide'     => $known ? null : Catalog::self_declared( $ua ),
 				'hits'      => $hits,
 				'recent'    => $rec,
 				'firstSeen' => $first ? gmdate( 'c', $first ) : '',

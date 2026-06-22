@@ -57,6 +57,7 @@ namespace {
 	if ( ! function_exists( 'sanitize_email' ) )        { function sanitize_email( $e ) { return trim( (string) $e ); } }
 	if ( ! function_exists( 'esc_url_raw' ) )           { function esc_url_raw( $u, $p = null ) { return trim( (string) $u ); } }
 	if ( ! function_exists( 'esc_url' ) )               { function esc_url( $u, $p = null ) { return trim( (string) $u ); } }
+	if ( ! function_exists( 'wp_parse_url' ) )          { function wp_parse_url( $u, $c = -1 ) { return parse_url( (string) $u, $c ); } }
 	if ( ! function_exists( 'is_email' ) )              { function is_email( $e ) { return filter_var( $e, FILTER_VALIDATE_EMAIL ) ? $e : false; } }
 	if ( ! function_exists( 'wp_normalize_path' ) )     { function wp_normalize_path( $p ) { return str_replace( '\\', '/', (string) $p ); } }
 	if ( ! function_exists( 'wp_strip_all_tags' ) )     { function wp_strip_all_tags( $s ) { return trim( strip_tags( (string) $s ) ); } }

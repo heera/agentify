@@ -64,4 +64,33 @@ final class CatalogTest extends TestCase {
 	public function test_an_unrecognised_bot_is_null() {
 		$this->assertNull( Catalog::identify( 'WhateverBot/1.0 (+http://example.com)' ) );
 	}
+
+	/* -- Unknown-crawler guidance (self_declared) ------------------------- */
+
+	public function test_self_declared_extracts_the_plus_url_host_and_name() {
+		$g = Catalog::self_declared( 'Mozilla/5.0 (compatible; SomeNewBot/1.0; +https://www.example.com/bot)' );
+		$this->assertSame( 'https://www.example.com/bot', $g['url'] );
+		$this->assertSame( 'example.com', $g['host'], 'Host is shown sans www so the owner sees the destination.' );
+		$this->assertSame( 'SomeNewBot', $g['name'] );
+		$this->assertStringContainsString( 'duckduckgo.com', $g['lookup'] );
+	}
+
+	public function test_self_declared_prefers_a_bot_like_token_and_has_no_url() {
+		$g = Catalog::self_declared( 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; FancyCrawler/2.3' );
+		$this->assertSame( 'FancyCrawler', $g['name'], 'Browser tokens are skipped; the bot-like token wins.' );
+		$this->assertSame( '', $g['url'], 'No +URL present, so url stays empty.' );
+		$this->assertStringContainsString( 'FancyCrawler', urldecode( $g['lookup'] ) );
+	}
+
+	public function test_self_declared_only_surfaces_http_links() {
+		$g = Catalog::self_declared( 'EvilBot/1.0 (+javascript:alert(1))' );
+		$this->assertSame( '', $g['url'], 'Non-http(s) self-declared schemes are never surfaced.' );
+	}
+
+	public function test_self_declared_is_empty_for_no_ua() {
+		$this->assertSame(
+			array( 'name' => '', 'url' => '', 'host' => '', 'lookup' => '' ),
+			Catalog::self_declared( '' )
+		);
+	}
 }
