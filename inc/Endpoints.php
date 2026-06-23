@@ -660,15 +660,23 @@ final class Endpoints {
 	 */
 	private function about_block() {
 		$about     = $this->text( $this->settings->identity( 'about', '' ) );
+		$not       = $this->text( $this->settings->identity( 'not_description', '' ) );
+		$audience  = $this->text( $this->settings->identity( 'audience', '' ) );
 		$expertise = array_values( array_filter( array_map( 'trim', (array) $this->settings->identity( 'expertise', array() ) ) ) );
 
-		if ( '' === $about && empty( $expertise ) ) {
+		if ( '' === $about && '' === $not && '' === $audience && empty( $expertise ) ) {
 			return '';
 		}
 
 		$out = "\n## About\n\n";
 		if ( '' !== $about ) {
 			$out .= $about . "\n";
+		}
+		if ( '' !== $not ) {
+			$out .= "\nWhat this is not: " . $not . "\n";
+		}
+		if ( '' !== $audience ) {
+			$out .= "\nAudience: " . $audience . "\n";
 		}
 		if ( ! empty( $expertise ) ) {
 			$out .= "\nExpertise:\n\n";

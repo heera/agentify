@@ -158,6 +158,8 @@ final class Schema {
 		$type    = '' !== $stored ? $stored : 'Person';
 		$name    = (string) $this->settings->identity( 'name', get_bloginfo( 'name' ) );
 		$about   = (string) $this->settings->identity( 'about' );
+		$not     = (string) $this->settings->identity( 'not_description' );
+		$aud     = (string) $this->settings->identity( 'audience' );
 		$same_as = array_values( array_filter( (array) $this->settings->identity( 'same_as', array() ) ) );
 		$knows   = array_values( array_filter( (array) $this->settings->identity( 'expertise', array() ) ) );
 
@@ -169,6 +171,13 @@ final class Schema {
 		);
 		if ( '' !== $about ) {
 			$node['description'] = $about;
+		}
+		// A negative description disambiguates the entity so agents don't miscategorize it.
+		if ( '' !== $not ) {
+			$node['disambiguatingDescription'] = $not;
+		}
+		if ( '' !== $aud ) {
+			$node['audience'] = array( '@type' => 'Audience', 'audienceType' => $aud );
 		}
 		if ( ! empty( $knows ) ) {
 			$node['knowsAbout'] = $knows;

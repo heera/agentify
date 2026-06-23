@@ -43,6 +43,8 @@ final class Settings {
 				'name'          => get_bloginfo( 'name' ),
 				'role'          => '',
 				'about'         => '',
+				'not_description' => '', // What the site is NOT — a disambiguation so agents don't miscategorize it (Schema.org disambiguatingDescription).
+				'audience'      => '', // Who the site is for (Schema.org audience.audienceType).
 				'contact_email' => '', // Opt-in; published in discovery.json only if set.
 				'expertise'     => array(),
 				'same_as'       => array(),
@@ -432,6 +434,8 @@ final class Settings {
 			'name'        => isset( $identity_in['name'] ) ? sanitize_text_field( (string) $identity_in['name'] ) : '',
 			'role'        => isset( $identity_in['role'] ) ? sanitize_text_field( (string) $identity_in['role'] ) : '',
 			'about'         => isset( $identity_in['about'] ) ? sanitize_textarea_field( (string) $identity_in['about'] ) : '',
+			'not_description' => isset( $identity_in['not_description'] ) ? sanitize_textarea_field( (string) $identity_in['not_description'] ) : '',
+			'audience'      => isset( $identity_in['audience'] ) ? sanitize_text_field( (string) $identity_in['audience'] ) : '',
 			'contact_email' => isset( $identity_in['contact_email'] ) ? sanitize_email( (string) $identity_in['contact_email'] ) : '',
 			'expertise'     => $this->sanitize_list( isset( $identity_in['expertise'] ) ? $identity_in['expertise'] : array(), 'sanitize_text_field' ),
 			'same_as'       => $this->sanitize_list( isset( $identity_in['same_as'] ) ? $identity_in['same_as'] : array(), 'esc_url_raw' ),

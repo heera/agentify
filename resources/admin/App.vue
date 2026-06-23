@@ -89,7 +89,7 @@ export default {
     profileDirty() {
       const saved = JSON.parse(this.savedSnapshot).identity || {};
       const cur = this.settings.identity || {};
-      return ['entity_type', 'name', 'role', 'about', 'contact_email'].some(
+      return ['entity_type', 'name', 'role', 'about', 'not_description', 'audience', 'contact_email'].some(
         (k) => (cur[k] || '') !== (saved[k] || ''),
       );
     },
@@ -261,7 +261,7 @@ export default {
       try {
         const res = await this.api.saveSettings(this.settings);
         const savedId = (res.settings && res.settings.identity) || {};
-        ['entity_type', 'name', 'role', 'about', 'contact_email'].forEach((k) => {
+        ['entity_type', 'name', 'role', 'about', 'not_description', 'audience', 'contact_email'].forEach((k) => {
           if (this.settings.identity) this.settings.identity[k] = savedId[k];
         });
         this.savedSnapshot = JSON.stringify(res.settings);
@@ -359,7 +359,7 @@ export default {
     async autosaveInstant() {
       const savedId = (JSON.parse(this.savedSnapshot).identity) || {};
       const payload = JSON.parse(JSON.stringify(this.settings));
-      ['entity_type', 'name', 'role', 'about', 'contact_email'].forEach((k) => {
+      ['entity_type', 'name', 'role', 'about', 'not_description', 'audience', 'contact_email'].forEach((k) => {
         if (payload.identity) payload.identity[k] = savedId[k];
       });
       this.autoStatus = 'saving';

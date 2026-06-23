@@ -257,7 +257,7 @@ final class Envelope {
 		if ( '' !== $email && is_email( $email ) ) {
 			$contacts[] = array( 'type' => 'email', 'value' => 'mailto:' . $email );
 		}
-		return array(
+		$identity = array(
 			'type'         => 'Person' === $type ? 'person' : 'organization',
 			'name'         => $this->settings->identity( 'name', get_bloginfo( 'name' ) ),
 			'role'         => (string) $this->settings->identity( 'role', '' ),
@@ -266,6 +266,17 @@ final class Envelope {
 			'same_as'      => array_values( (array) $this->settings->identity( 'same_as', array() ) ),
 			'contacts'     => $contacts,
 		);
+		// Optional disambiguation — included only when the owner sets it, so an
+		// unconfigured site's document is unchanged (additive, schema-permissive).
+		$not = (string) $this->settings->identity( 'not_description', '' );
+		if ( '' !== $not ) {
+			$identity['not_description'] = $not;
+		}
+		$audience = (string) $this->settings->identity( 'audience', '' );
+		if ( '' !== $audience ) {
+			$identity['audience'] = $audience;
+		}
+		return $identity;
 	}
 
 	/**

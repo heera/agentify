@@ -345,6 +345,24 @@ export default {
       </div>
 
       <div class="ar-field">
+        <label for="ar-not">What you’re not <span class="ar-field__tag">optional</span></label>
+        <textarea
+          id="ar-not"
+          v-model="identity.not_description"
+          class="ar-input"
+          rows="2"
+          placeholder="e.g. This is not a personal blog or a news site."
+        ></textarea>
+        <small class="ar-field__hint">An explicit exclusion so agents don’t miscategorize you. Becomes JSON-LD <code>disambiguatingDescription</code> and a line in llms.txt.</small>
+      </div>
+
+      <div class="ar-field">
+        <label for="ar-audience">Audience <span class="ar-field__tag">optional</span></label>
+        <input id="ar-audience" v-model="identity.audience" type="text" class="ar-input" placeholder="e.g. Small business owners evaluating IT services" />
+        <small class="ar-field__hint">Who the site is for. Feeds JSON-LD <code>audience</code> and llms.txt.</small>
+      </div>
+
+      <div class="ar-field">
         <label for="ar-contact">Public contact email <span class="ar-field__tag">optional</span></label>
         <input id="ar-contact" v-model="identity.contact_email" type="email" class="ar-input" placeholder="hello@example.com" />
         <small class="ar-field__hint">
