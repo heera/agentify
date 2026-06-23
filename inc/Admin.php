@@ -34,6 +34,11 @@ final class Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'menu_icon_style' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( AGENTIMUS_FILE ), array( $this, 'action_links' ) );
 		add_action( 'admin_init', array( $this, 'maybe_activation_redirect' ) );
+
+		// Quick-access node in the toolbar (front-end + admin), with its icon.
+		add_action( 'admin_bar_menu', array( $this, 'admin_bar_node' ), 80 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'admin_bar_style' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'admin_bar_style' ) );
 	}
 
 	/**
@@ -85,6 +90,96 @@ final class Admin {
 			. $sel . '.current .wp-menu-image::before,'
 			. $sel . '.wp-has-current-submenu .wp-menu-image::before,'
 			. $sel . '.opensub .wp-menu-image::before{background-color:#fff}';
+
+		wp_register_style( $handle, false, array(), AGENTIMUS_VERSION );
+		wp_enqueue_style( $handle );
+		wp_add_inline_style( $handle, $css );
+	}
+
+	/**
+	 * Quick-access node in the WordPress toolbar so Agentimus is one click away
+	 * from anywhere — the front-end bar and every other admin screen.
+	 *
+	 * Hidden on the plugin's own screen (you're already there) and shown only to
+	 * users who can actually open it. The child nodes deep-link into the SPA's
+	 * tabs, which route off the URL hash (see action_links()).
+	 *
+	 * Placed in the right-hand `top-secondary` group; at this hook priority (80)
+	 * it falls between the account node (priority 0) and the search node (9999),
+	 * so the float:right layout renders it immediately to the left of "Howdy".
+	 *
+	 * @param \WP_Admin_Bar $bar The toolbar being built.
+	 */
+	public function admin_bar_node( $bar ) {
+		if ( ! current_user_can( 'manage_options' ) || $this->is_plugin_screen() ) {
+			return;
+		}
+
+		$base = admin_url( 'admin.php?page=' . self::SLUG );
+
+		$bar->add_node( array(
+			'id'     => self::SLUG,
+			'parent' => 'top-secondary',
+			'title'  => '<span class="ab-icon" aria-hidden="true"></span>' . esc_html__( 'Agentimus', 'agentimus' ),
+			'href'   => esc_url( $base ),
+			'meta'   => array( 'title' => esc_attr__( 'Open Agentimus', 'agentimus' ) ),
+		) );
+
+		$tabs = array(
+			'dashboard' => __( 'Dashboard', 'agentimus' ),
+			'settings'  => __( 'Settings', 'agentimus' ),
+			'readiness' => __( 'Readiness', 'agentimus' ),
+			'discovery' => __( 'Discovery', 'agentimus' ),
+		);
+		foreach ( $tabs as $tab => $label ) {
+			$bar->add_node( array(
+				'parent' => self::SLUG,
+				'id'     => self::SLUG . '-' . $tab,
+				'title'  => $label,
+				'href'   => esc_url( $base . '#' . $tab ),
+			) );
+		}
+	}
+
+	/**
+	 * Whether the current request is the Agentimus admin screen — used to hide
+	 * the toolbar shortcut when it would just point at the page you're on.
+	 *
+	 * @return bool
+	 */
+	private function is_plugin_screen() {
+		if ( ! is_admin() ) {
+			return false;
+		}
+		if ( function_exists( 'get_current_screen' ) ) {
+			$screen = get_current_screen();
+			if ( $screen && 'toplevel_page_' . self::SLUG === $screen->id ) {
+				return true;
+			}
+		}
+		// Fallback for hooks that fire before the screen object is set.
+		return isset( $_GET['page'] ) && self::SLUG === sanitize_key( wp_unslash( $_GET['page'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen check, no state change.
+	}
+
+	/**
+	 * Style the toolbar node's brand monogram. Reuses the menu icon's SVG as a
+	 * CSS mask filled with `currentColor`, so the "A" tracks the toolbar's own
+	 * text colour in every admin scheme and on the front-end bar alike. Enqueued
+	 * on both front and admin because the toolbar shows in both.
+	 */
+	public function admin_bar_style() {
+		if ( ! is_admin_bar_showing() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$uri    = $this->menu_icon_uri();
+		$sel    = '#wpadminbar #wp-admin-bar-' . self::SLUG;
+		$handle = self::HANDLE . '-adminbar';
+
+		$css = $sel . ' .ab-icon::before{content:"";display:inline-block;width:16px;height:16px;'
+			. 'margin:0 2px 0 0;vertical-align:middle;background-color:currentColor;'
+			. '-webkit-mask:url("' . $uri . '") center/contain no-repeat;'
+			. 'mask:url("' . $uri . '") center/contain no-repeat}';
 
 		wp_register_style( $handle, false, array(), AGENTIMUS_VERSION );
 		wp_enqueue_style( $handle );
