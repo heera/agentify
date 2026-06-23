@@ -408,9 +408,9 @@ export default {
           <label>Security contacts</label>
           <TagInput v-model="security.contacts" placeholder="security@example.com, https://… or tel:+…" />
           <small class="ar-field__hint">
-            Emails, <code>https://</code> report forms or <code>tel:</code> numbers; press Enter to add.
-            <span v-if="identity.contact_email">Your Identity email <code>{{ identity.contact_email }}</code> is used automatically as the first contact.</span>
-            <span v-else>The public contact email under Identity, if set, is reused here automatically.</span>
+            Add an email, a report-form URL, or a phone number, then press Enter.
+            <span v-if="identity.contact_email">Your Identity email <code>{{ identity.contact_email }}</code> is reused here automatically as the first contact.</span>
+            <span v-else>A public contact email set under Identity is reused here automatically.</span>
           </small>
         </div>
 

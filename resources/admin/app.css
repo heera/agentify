@@ -231,7 +231,6 @@
 
 /* Readiness rail widget — gauge + stat, lives in the side panel on every tab. */
 .ar-rail-readiness { display: flex; align-items: center; gap: 15px; }
-.ar-rail-readiness__meta { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .ar-rail-gauge { position: relative; flex: 0 0 auto; width: 62px; height: 62px; }
 .ar-rail-gauge svg { width: 62px; height: 62px; transform: rotate(-90deg); }
 .ar-rail-gauge__track { fill: none; stroke: var(--ar-line); stroke-width: 7; }
@@ -251,21 +250,55 @@
 }
 .ar-rail-gauge__num small { font-size: 9px; opacity: 0.55; }
 
+/* Tier badge beside the gauge: the one-word standing on the ladder. */
+.ar-rail-tier { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ar-rail-tier__name {
+  font-family: var(--ar-serif); font-size: 19px; font-weight: 600; line-height: 1.05;
+  color: rgba(243, 240, 231, 0.92);
+}
+.ar-rail-tier[data-state="top"] .ar-rail-tier__name { color: #5cc08a; }
+.ar-rail-tier[data-state="floor"] .ar-rail-tier__name { color: #e08a72; }
+.ar-rail-tier__sub {
+  font-family: var(--ar-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(243, 240, 231, 0.45);
+}
+
+/* The three-rung strip under the gauge: name + tally, with a state dot. */
+.ar-rungs { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.ar-rung {
+  display: flex; align-items: center; gap: 9px;
+  font-family: var(--ar-mono); font-size: 12px; color: rgba(243, 240, 231, 0.4);
+}
+.ar-rung__tick {
+  position: relative; flex: 0 0 auto; width: 13px; height: 13px;
+  border-radius: 50%; border: 1.5px solid currentColor;
+}
+.ar-rung__name { flex: 1; min-width: 0; }
+.ar-rung__count { font-size: 11px; opacity: 0.85; }
+.ar-rung[data-state="done"] { color: #5cc08a; }
+.ar-rung[data-state="done"] .ar-rung__tick { background: currentColor; }
+.ar-rung[data-state="current"] { color: #e0b24c; }
+.ar-rung[data-state="current"] .ar-rung__tick::after {
+  content: ""; position: absolute; inset: 3px; border-radius: 50%; background: currentColor;
+}
+/* The next-step CTA: always a single centred line — clip with an ellipsis rather
+   than wrap, since the check label that fills it varies in length. */
+.ar-rail-next {
+  display: block; width: 100%; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
 /* Dark variant of the Readiness rail card. Double class so it outranks the base
    .ar-rail-card background regardless of source order. */
 .ar-rail-card.ar-rail-card--readiness { background: var(--ar-ink); border-color: var(--ar-ink); }
 .ar-rail-card--readiness .ar-rail-card__label { color: rgba(243, 240, 231, 0.5); }
 .ar-rail-card--readiness .ar-rail-gauge__track { stroke: rgba(243, 240, 231, 0.15); }
 .ar-rail-card--readiness .ar-rail-gauge__num { color: rgba(243, 240, 231, 0.62); }
-.ar-rail-card--readiness .ar-rail-status span { color: rgba(243, 240, 231, 0.55); }
 .ar-rail-card--readiness .ar-rail-allgood { color: #5cc08a; }
-/* Brightened tones for contrast on the dark card. */
-.ar-rail-card--readiness .ar-rail-status[data-tone="good"] strong,
-.ar-rail-card--readiness .ar-rail-gauge__fill[data-tone="good"] { color: #5cc08a; stroke: #5cc08a; }
-.ar-rail-card--readiness .ar-rail-status[data-tone="ok"] strong,
-.ar-rail-card--readiness .ar-rail-gauge__fill[data-tone="ok"] { color: #e0b24c; stroke: #e0b24c; }
-.ar-rail-card--readiness .ar-rail-status[data-tone="low"] strong,
-.ar-rail-card--readiness .ar-rail-gauge__fill[data-tone="low"] { color: #e08a72; stroke: #e08a72; }
+/* Brightened gauge tones for contrast on the dark card. */
+.ar-rail-card--readiness .ar-rail-gauge__fill[data-tone="good"] { stroke: #5cc08a; }
+.ar-rail-card--readiness .ar-rail-gauge__fill[data-tone="ok"] { stroke: #e0b24c; }
+.ar-rail-card--readiness .ar-rail-gauge__fill[data-tone="low"] { stroke: #e08a72; }
 .ar-rail-card--readiness .ar-rail-link { color: #57b6a6; }
 .ar-rail-card--readiness .ar-rail-link:hover { color: #6fc7b8; }
 
@@ -338,17 +371,13 @@
   text-transform: uppercase;
   color: var(--ar-ink-faint);
 }
-.ar-rail-status { display: flex; align-items: baseline; gap: 7px; }
-.ar-rail-status strong { font-family: var(--ar-mono); font-size: 22px; font-weight: 600; }
-.ar-rail-status span { font-size: 12px; color: var(--ar-ink-soft); }
-.ar-rail-status[data-tone="good"] strong { color: var(--ar-good); }
-.ar-rail-status[data-tone="ok"] strong { color: var(--ar-warn); }
-.ar-rail-status[data-tone="low"] strong { color: var(--ar-bad); }
 .ar-rail-link {
   appearance: none; background: none; border: 0; padding: 10px 0 0; cursor: pointer;
   font-family: var(--ar-mono); font-size: 12px; color: var(--ar-accent);
 }
-.ar-rail-link:hover { text-decoration: underline; }
+/* No underline-on-hover — feedback is the colour shift (brightened on the dark
+   readiness card), so the next-step line reads as an affordance, not a hyperlink. */
+.ar-rail-link:hover { color: var(--ar-ink-soft); }
 .ar-rail-allgood { margin: 9px 0 0; font-size: 12px; color: var(--ar-good); }
 .ar-rail-links { margin: 0; padding: 0; list-style: none; display: grid; gap: 9px; }
 .ar-rail-links a {
@@ -521,7 +550,9 @@
 }
 
 /* ---- Fields ------------------------------------------------------------- */
-.ar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.ar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 18px; }
+/* The identity block sets its own top padding, so its leading grid stays flush. */
+.ar-id-block > .ar-grid { margin-top: 0; }
 .ar-field { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
 .ar-field:first-child { margin-top: 0; }
 /* Grid fields sit side by side — keep their tops aligned, not stair-stepped. */
@@ -533,7 +564,7 @@
   text-transform: uppercase;
   color: var(--ar-ink-soft);
 }
-.ar-field__hint { color: var(--ar-ink-soft); font-size: 12px; }
+.ar-field__hint { color: var(--ar-ink-soft); font-size: 12px; line-height: 1.5; margin-top: 2px; }
 .ar-field--inline { flex-direction: row; align-items: center; gap: 12px; margin-top: 20px; }
 .ar-field--inline label {
   font-family: var(--ar-mono); font-size: 11px; letter-spacing: 0.08em;
@@ -808,10 +839,49 @@ select.ar-input {
 .ar-wiz__skip { margin-right: auto; }
 
 /* ---- Readiness ---------------------------------------------------------- */
+/* Each rung is a titled group of checks, with its own pass tally. */
+.ar-checkgroup { margin-top: 26px; }
+.ar-checkgroup:first-of-type { margin-top: 16px; }
+.ar-checkgroup__head {
+  position: relative;
+  display: flex; align-items: center; gap: 11px;
+  padding: 0 4px 11px;
+}
+/* A slim full-width 1px divider, colour-keyed to the rung's status (pass / warn /
+   fail) so the header reads as one signal with its dot and count. */
+.ar-checkgroup__head::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--ar-line-strong);
+}
+.ar-checkgroup.is-pass .ar-checkgroup__head::after { background: rgba(47, 122, 76, 0.55); }
+.ar-checkgroup.is-warn .ar-checkgroup__head::after { background: rgba(173, 123, 24, 0.5); }
+.ar-checkgroup.is-fail .ar-checkgroup__head::after { background: rgba(185, 60, 43, 0.5); }
+.ar-checkgroup__rung {
+  flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--ar-line-strong);
+}
+.ar-checkgroup.is-pass .ar-checkgroup__rung { background: var(--ar-good); }
+.ar-checkgroup.is-warn .ar-checkgroup__rung { background: var(--ar-warn); }
+.ar-checkgroup.is-fail .ar-checkgroup__rung { background: var(--ar-bad); }
+.ar-checkgroup__text { flex: 1; min-width: 0; }
+.ar-checkgroup__name {
+  margin: 0; font-family: var(--ar-serif); font-size: 16px; font-weight: 600; color: var(--ar-ink);
+}
+.ar-checkgroup__blurb { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--ar-ink-soft); }
+.ar-checkgroup__count {
+  flex: 0 0 auto; font-family: var(--ar-mono); font-size: 13px; font-weight: 600; color: var(--ar-ink-soft);
+}
+.ar-checkgroup.is-pass .ar-checkgroup__count { color: var(--ar-good); }
+.ar-checkgroup.is-warn .ar-checkgroup__count { color: var(--ar-warn); }
+.ar-checkgroup.is-fail .ar-checkgroup__count { color: var(--ar-bad); }
+.ar-checkgroup .ar-checks { margin-top: 0; border-top: 0; }
+
 .ar-checks { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 0; border-top: 1px solid var(--ar-line); }
 .ar-check {
   display: flex; align-items: flex-start; gap: 16px;
   padding: 15px 4px; border-bottom: 1px solid var(--ar-line);
+  /* Clear the fixed WordPress admin bar when the rail's next-step link jumps here. */
+  scroll-margin-top: 40px;
 }
 .ar-check__text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .ar-check__text strong { font-size: 14px; font-weight: 600; }

@@ -144,7 +144,9 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 == Changelog ==
 
 = Unreleased =
-* _Nothing yet — entries for the next release accumulate here, then this heading is renamed to the version number at publish time._
+* Readiness report reorganised into a Findable → Readable → Trusted ladder: each rung groups its checks under a status-coloured heading, and the dashboard rail shows which rung you've reached plus a one-line next step that jumps straight to the check to fix.
+* Agent endpoints (/llms.txt, /llms-full.txt, markdown, the fallback sitemap) now send `Access-Control-Allow-Origin: *`, so browser-based agents can read them cross-origin — matching the discovery documents.
+* HTML pages now advertise their markdown twin with a `Link: …; rel="alternate"; type="text/markdown"` header, so an agent can discover the `.md` URL instead of guessing it.
 
 = 1.2.0 =
 * AI-usage signals beyond robots.txt: when you block AI training, the "Allow AI training" switch now also publishes a standardized TDM Reservation Protocol response header (`tdm-reservation: 1`) and an opt-out file at `/.well-known/tdmrep.json` — one decision, every channel, so a crawler that ignores robots.txt still sees your choice. Both are on by default and individually toggleable. An open site publishes neither (on the web, no signal already means "allowed").

@@ -1,5 +1,6 @@
 <script>
 import { createApi } from './api.js';
+import { summarize } from './tiers.js';
 import SettingsForm from './components/SettingsForm.vue';
 import ReadinessPanel from './components/ReadinessPanel.vue';
 import DiscoveryHub from './components/DiscoveryHub.vue';
@@ -61,8 +62,15 @@ export default {
     tone() {
       return this.score.pct >= 80 ? 'good' : this.score.pct >= 50 ? 'ok' : 'low';
     },
-    issues() {
-      return this.readiness.filter((c) => c.status !== 'pass').length;
+    // The Findable → Readable → Trusted ladder: which rung you've reached and the
+    // single next step, shown as the rail headline (see tiers.js).
+    ladder() {
+      return summarize(this.readiness);
+    },
+    // DOM id of the single next check the rail's next-step button jumps to.
+    nextAnchor() {
+      const r = this.ladder.next && this.ladder.next.remaining[0];
+      return r ? `ar-check-${r.id}` : null;
     },
     dirty() {
       return JSON.stringify(this.settings) !== this.savedSnapshot;
@@ -627,17 +635,46 @@ export default {
               </svg>
               <span class="ar-rail-gauge__num">{{ score.pct }}<small>%</small></span>
             </div>
-            <div class="ar-rail-readiness__meta">
-              <div class="ar-rail-status" :data-tone="tone">
-                <strong>{{ score.pass }}/{{ score.total }}</strong>
-                <span>pass</span>
-              </div>
-              <button v-if="issues" type="button" class="ar-rail-link" @click="tab = 'readiness'">
-                {{ issues }} to review →
-              </button>
-              <p v-else class="ar-rail-allgood">All checks pass.</p>
+            <div
+              class="ar-rail-tier"
+              :data-state="ladder.floor ? 'floor' : ladder.topped ? 'top' : ladder.achieved ? 'climb' : 'start'"
+            >
+              <strong class="ar-rail-tier__name">{{
+                ladder.floor ? 'Not reachable'
+                : ladder.achieved ? ladder.achieved.label
+                : 'Getting started'
+              }}</strong>
+              <span class="ar-rail-tier__sub">{{
+                ladder.floor ? 'agents can’t read the site'
+                : ladder.topped ? 'fully agent-ready'
+                : ladder.achieved ? 'rung reached'
+                : 'first rung in progress'
+              }}</span>
             </div>
           </div>
+
+          <ol class="ar-rungs">
+            <li v-for="r in ladder.rungs" :key="r.key" class="ar-rung" :data-state="r.state">
+              <span class="ar-rung__tick" aria-hidden="true"></span>
+              <span class="ar-rung__name">{{ r.label }}</span>
+              <span class="ar-rung__count">{{ r.pass }}/{{ r.total }}</span>
+            </li>
+          </ol>
+
+          <button
+            v-if="ladder.floor"
+            type="button"
+            class="ar-rail-link ar-rail-next"
+            @click="goTo({ tab: 'readiness', anchor: nextAnchor })"
+          >Make the site public →</button>
+          <button
+            v-else-if="ladder.next && ladder.next.remaining.length"
+            type="button"
+            class="ar-rail-link ar-rail-next"
+            :title="`Next: ${ladder.next.remaining[0].label}`"
+            @click="goTo({ tab: 'readiness', anchor: nextAnchor })"
+          >Next: {{ ladder.next.remaining[0].label }} →</button>
+          <p v-else class="ar-rail-allgood">All rungs complete.</p>
         </div>
 
         <div class="ar-rail-card">

@@ -176,6 +176,9 @@ final class Endpoints {
 			status_header( 200 );
 			header( 'Content-Type: ' . $content_type . '; charset=UTF-8' );
 			header( 'X-Content-Type-Options: nosniff' );
+			// Public, read-only agent docs — allow cross-origin reads so browser-based
+			// agents can fetch them too (matches the discovery docs in WellKnown).
+			header( 'Access-Control-Allow-Origin: *' );
 			header( 'Vary: Accept', false );
 
 			if ( 'text/markdown' === $content_type ) {
@@ -251,6 +254,54 @@ final class Endpoints {
 		if ( $this->settings->enabled( 'enable_llms_txt' ) && ! $this->link_present( 'describedby' ) ) {
 			header( 'Link: <' . esc_url_raw( home_url( '/llms.txt' ) ) . '>; rel="describedby"; type="text/plain"', false );
 		}
+		// Advertise the current page's markdown twin (its `.md` URL) so an agent can
+		// discover it from the HTML response instead of guessing the path exists.
+		if ( $this->settings->enabled( 'enable_markdown' ) && ! $this->yields( 'markdown' ) ) {
+			$md = $this->markdown_alternate_url();
+			if ( '' !== $md && ! $this->markdown_alternate_present() ) {
+				header( 'Link: <' . esc_url_raw( $md ) . '>; rel="alternate"; type="text/markdown"', false );
+			}
+		}
+	}
+
+	/**
+	 * The `.md` URL for the page being rendered, or '' when there isn't a faithful
+	 * one to advertise. Limited to singular, in-scope content (a post/page that
+	 * markdown delivery actually serves) — the front page and archives map only to
+	 * the generic site index, so advertising them as a page "alternate" would
+	 * mislead, and they're skipped. The URL mirrors route()'s `.md` resolution:
+	 * the permalink with `.md` appended.
+	 *
+	 * @return string
+	 */
+	private function markdown_alternate_url() {
+		if ( ! is_singular() || is_front_page() ) {
+			return '';
+		}
+		$id = get_queried_object_id();
+		if ( ! $id || ! $this->post_in_scope( $id ) ) {
+			return '';
+		}
+		$permalink = get_permalink( $id );
+		return $permalink ? untrailingslashit( $permalink ) . '.md' : '';
+	}
+
+	/**
+	 * Whether a markdown `rel="alternate"` Link header was already emitted this
+	 * request (e.g. by a theme). Matched on rel AND type, since `alternate` legally
+	 * repeats with different media types — so we only de-dupe the markdown one.
+	 *
+	 * @return bool
+	 */
+	private function markdown_alternate_present() {
+		foreach ( headers_list() as $header ) {
+			if ( 0 === stripos( $header, 'link:' )
+				&& false !== stripos( $header, 'rel="alternate"' )
+				&& false !== stripos( $header, 'text/markdown' ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/* ---------------------------------------------------------------------- *

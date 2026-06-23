@@ -1,4 +1,6 @@
 <script>
+import { groupChecks } from '../tiers.js';
+
 export default {
   name: 'ReadinessPanel',
   props: {
@@ -7,9 +9,9 @@ export default {
   },
   emits: ['refresh', 'navigate'],
   computed: {
-    grouped() {
-      const order = { fail: 0, warn: 1, pass: 2 };
-      return [...this.checks].sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3));
+    // The same checks, grouped under the Findable → Readable → Trusted rungs.
+    groups() {
+      return groupChecks(this.checks);
     },
   },
   methods: {
@@ -29,29 +31,45 @@ export default {
       </button>
     </div>
 
-    <ul class="ar-checks">
-      <li v-for="c in grouped" :key="c.id" class="ar-check" :class="`is-${c.status}`">
-        <span class="ar-check__rule" aria-hidden="true"></span>
-        <div class="ar-check__text">
-          <strong>{{ c.label }}</strong>
-          <small>{{ c.detail }}</small>
-          <p v-if="c.fix" class="ar-check__fix">{{ c.fix }}</p>
-          <a
-            v-if="c.action && c.action.href"
-            class="ar-check__action"
-            :href="c.action.href"
-            target="_blank"
-            rel="noopener"
-          >{{ c.action.label }} ↗</a>
-          <button
-            v-else-if="c.action"
-            type="button"
-            class="ar-check__action"
-            @click="$emit('navigate', { tab: c.action.tab, anchor: c.action.anchor })"
-          >{{ c.action.label }} →</button>
+    <div
+      v-for="g in groups"
+      :key="g.key"
+      class="ar-checkgroup"
+      :class="`is-${g.status}`"
+    >
+      <div class="ar-checkgroup__head">
+        <span class="ar-checkgroup__rung" aria-hidden="true"></span>
+        <div class="ar-checkgroup__text">
+          <h3 class="ar-checkgroup__name">{{ g.label }}</h3>
+          <p v-if="g.blurb" class="ar-checkgroup__blurb">{{ g.blurb }}</p>
         </div>
-        <span class="ar-check__tag" :class="`is-${c.status}`">{{ tagLabel(c.status) }}</span>
-      </li>
-    </ul>
+        <span class="ar-checkgroup__count">{{ g.pass }}/{{ g.total }}</span>
+      </div>
+
+      <ul class="ar-checks">
+        <li v-for="c in g.items" :id="`ar-check-${c.id}`" :key="c.id" class="ar-check" :class="`is-${c.status}`">
+          <span class="ar-check__rule" aria-hidden="true"></span>
+          <div class="ar-check__text">
+            <strong>{{ c.label }}</strong>
+            <small>{{ c.detail }}</small>
+            <p v-if="c.fix" class="ar-check__fix">{{ c.fix }}</p>
+            <a
+              v-if="c.action && c.action.href"
+              class="ar-check__action"
+              :href="c.action.href"
+              target="_blank"
+              rel="noopener"
+            >{{ c.action.label }} ↗</a>
+            <button
+              v-else-if="c.action"
+              type="button"
+              class="ar-check__action"
+              @click="$emit('navigate', { tab: c.action.tab, anchor: c.action.anchor })"
+            >{{ c.action.label }} →</button>
+          </div>
+          <span class="ar-check__tag" :class="`is-${c.status}`">{{ tagLabel(c.status) }}</span>
+        </li>
+      </ul>
+    </div>
   </section>
 </template>
