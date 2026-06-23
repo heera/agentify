@@ -58,9 +58,18 @@ export default {
     <div v-if="live || liveRunning" class="ar-live">
       <div class="ar-live__head">
         <h3 class="ar-live__title">What agents actually receive</h3>
-        <span v-if="live" class="ar-live__tally" :class="{ 'is-bad': livePass < live.length }">
-          {{ livePass }}/{{ live.length }} OK
-        </span>
+        <div class="ar-live__meta">
+          <span v-if="live" class="ar-live__tally" :class="{ 'is-bad': livePass < live.length }">
+            {{ livePass }}/{{ live.length }} OK
+          </span>
+          <button
+            v-if="live && !liveRunning"
+            type="button"
+            class="ar-live__close"
+            aria-label="Dismiss live results"
+            @click="live = null"
+          >&times;</button>
+        </div>
       </div>
       <p class="ar-live__lead">
         Fetched from your browser through the public URL — so this reflects what an agent gets

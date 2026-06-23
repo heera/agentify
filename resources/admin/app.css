@@ -927,6 +927,12 @@ select.ar-input {
 }
 .ar-live__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .ar-live__title { margin: 0; font-family: var(--ar-serif); font-size: 15px; font-weight: 600; color: var(--ar-ink); }
+.ar-live__meta { display: flex; align-items: center; gap: 12px; }
+.ar-live__close {
+  appearance: none; background: none; border: 0; cursor: pointer; padding: 0 2px;
+  font-size: 18px; line-height: 1; color: var(--ar-ink-faint);
+}
+.ar-live__close:hover { color: var(--ar-ink); }
 .ar-live__tally { font-family: var(--ar-mono); font-size: 12px; font-weight: 600; color: var(--ar-good); }
 .ar-live__tally.is-bad { color: var(--ar-bad); }
 .ar-live__lead { margin: 5px 0 12px; font-size: 12px; line-height: 1.5; color: var(--ar-ink-soft); }

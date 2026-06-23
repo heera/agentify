@@ -64,12 +64,18 @@ export async function runCheck(c) {
       if (!val.includes(c.expect.header.includes.toLowerCase())) problems.push(`no ${c.expect.header.name} advertised`);
     }
 
+    // For a header-presence check the fetched resource's own type is incidental;
+    // report what we actually confirmed ("link present") instead.
+    const okDetail = c.expect.header
+      ? `${res.status} · ${c.expect.header.name} present`
+      : `${res.status} · ${ct.split(';')[0] || 'ok'}`;
+
     return {
       key: c.key,
       label: c.label,
       url: c.url,
       ok: problems.length === 0,
-      detail: problems.length ? problems.join(' · ') : `${res.status} · ${ct.split(';')[0] || 'ok'}`,
+      detail: problems.length ? problems.join(' · ') : okDetail,
     };
   } catch (e) {
     return { key: c.key, label: c.label, url: c.url, ok: false, detail: 'unreachable (blocked, offline, or wrong host)' };
