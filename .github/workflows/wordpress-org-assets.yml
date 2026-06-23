@@ -2,8 +2,16 @@ name: Update WordPress.org assets
 
 # Syncs the plugin-listing assets (icon, banner, screenshots) and readme.txt to
 # WordPress.org WITHOUT cutting a release — useful for swapping a banner or
-# fixing readme copy between versions. Runs when those files change on main, or
-# on demand from the Actions tab / `gh workflow run`.
+# fixing readme copy between versions. Auto-runs only when the listing assets
+# change on main; also available on demand from the Actions tab /
+# `gh workflow run` (use that for a readme-only copy fix between releases).
+#
+# readme.txt is deliberately NOT an auto-trigger path: a release push bumps
+# readme.txt alongside code, and the 10up asset action refuses to deploy when
+# trunk has non-asset/non-readme code changes ("Other files have been
+# modified") — so on every release this workflow failed harmlessly but noisily.
+# The tagged deploy syncs readme.txt as part of the release anyway, and a
+# readme-only fix can still be pushed via workflow_dispatch.
 #
 # It builds the Vue admin app FIRST. trunk already contains the compiled
 # assets/admin/ (committed by the deploy workflow), but that directory is
@@ -19,7 +27,6 @@ on:
       - main
     paths:
       - '.wordpress-org/**'
-      - 'readme.txt'
 
 jobs:
   assets:
