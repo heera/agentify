@@ -16,11 +16,14 @@ export default {
     profileDirty: { type: Boolean, default: false },
     profileSaving: { type: Boolean, default: false },
     profileSaved: { type: Boolean, default: false },
+    servicesDirty: { type: Boolean, default: false },
+    servicesSaving: { type: Boolean, default: false },
+    servicesSaved: { type: Boolean, default: false },
     resetting: { type: Boolean, default: false },
     defaults: { type: Object, default: () => ({}) },
     llmsFullEstimate: { type: Object, default: () => ({}) },
   },
-  emits: ['save-profile', 'reset', 'reopen-wizard'],
+  emits: ['save-profile', 'save-services', 'reset', 'reopen-wizard'],
   data() {
     return { typeQuery: '', nsQuery: '', showReset: false, scrollMore: false };
   },
@@ -259,10 +262,20 @@ export default {
       this.$emit('reset');
     },
     addService() {
+      // A row needs a name to be saved, so don't stack unsaveable blank rows —
+      // fill the empty one already on screen before adding another.
+      if (this.identity.services.some((s) => !(s.name || '').trim())) {
+        return;
+      }
       this.identity.services.push({ name: '', description: '', url: '' });
     },
     removeService(index) {
       this.identity.services.splice(index, 1);
+      // A removal is intentional and complete — persist it immediately rather than
+      // waiting for an explicit Save (which only the add/edit flow needs). The
+      // parent's servicesDirty guard makes this a no-op when nothing actually
+      // changed vs the saved state (e.g. removing an unsaved or blank row).
+      this.$emit('save-services');
     },
     addTrainer(name) {
       if (!Array.isArray(this.settings.blocked_trainers)) this.settings.blocked_trainers = [];
@@ -408,38 +421,53 @@ export default {
         </small>
       </div>
 
-      <div class="ar-field">
-        <label>Services</label>
-        <small class="ar-field__hint">
-          What you can be hired for — each becomes a Schema.org <code>Service</code> linked to you as the provider, so agents can answer “what does this site offer?”. Optional; leave empty if you don't sell services. Saved as you edit.
-        </small>
-        <div v-for="(svc, i) in identity.services" :key="i" class="ar-svc">
-          <div class="ar-svc__head">
-            <input
-              v-model="svc.name"
-              type="text"
-              class="ar-input"
-              placeholder="Service name (e.g. WordPress plugin development)"
-              aria-label="Service name"
-            />
-            <button type="button" class="ar-btn ar-btn--ghost ar-svc__rm" aria-label="Remove service" @click="removeService(i)">Remove</button>
-          </div>
-          <textarea
-            v-model="svc.description"
-            class="ar-input ar-svc__desc"
-            rows="2"
-            placeholder="One line on what it includes (optional)"
-            aria-label="Service description"
-          ></textarea>
+    </section>
+
+    <!-- Services ------------------------------------------------------- -->
+    <section id="ar-sec-services" class="ar-card">
+      <h2 class="ar-card__title">Services</h2>
+      <p class="ar-card__lead">
+        What you can be hired for — each becomes a Schema.org <code>Service</code> linked to you as
+        the provider, so agents can answer “what does this site offer?”. Optional; leave empty if
+        you don't sell services.
+      </p>
+
+      <div v-for="(svc, i) in identity.services" :key="i" class="ar-svc">
+        <button type="button" class="ar-svc__x" aria-label="Remove service" title="Remove service" @click="removeService(i)">×</button>
+        <div class="ar-svc__row">
+          <input
+            v-model="svc.name"
+            type="text"
+            class="ar-input ar-svc__name"
+            placeholder="Service name (e.g. WordPress plugin development)"
+            aria-label="Service name"
+          />
           <input
             v-model="svc.url"
             type="url"
-            class="ar-input"
-            placeholder="https://… a page about it (optional)"
+            class="ar-input ar-svc__url"
+            placeholder="https://… (optional)"
             aria-label="Service URL"
           />
         </div>
-        <button type="button" class="ar-btn ar-btn--ghost ar-svc__add" @click="addService">+ Add a service</button>
+        <input
+          v-model="svc.description"
+          type="text"
+          class="ar-input"
+          placeholder="One line on what it includes (optional)"
+          aria-label="Service description"
+        />
+      </div>
+      <button type="button" class="ar-svc__add" @click="addService">+ Add a service</button>
+
+      <div class="ar-id-foot">
+        <span v-if="servicesSaving" class="ar-id-foot__status">Saving…</span>
+        <span v-else-if="servicesDirty" class="ar-id-foot__status is-dirty">Unsaved changes</span>
+        <span v-else-if="servicesSaved" class="ar-id-foot__status is-saved">Saved ✓</span>
+        <span v-else class="ar-id-foot__status">Saved</span>
+        <button type="button" class="ar-btn" :disabled="servicesSaving || !servicesDirty" @click="$emit('save-services')">
+          {{ servicesSaving ? 'Saving…' : 'Save services' }}
+        </button>
       </div>
     </section>
 

@@ -46,6 +46,8 @@ export default {
       onboarding: false,
       profileSaving: false,
       profileSaved: false,
+      servicesSaving: false,
+      servicesSaved: false,
       autoStatus: 'idle',
       notice: null,
       ringReady: false,
@@ -84,14 +86,28 @@ export default {
     dirty() {
       return JSON.stringify(this.settings) !== this.savedSnapshot;
     },
-    // The free-text "profile" block (entity/name/role/about/email) saves explicitly;
-    // everything else autosaves. profileDirty drives the in-card Save button.
+    // The free-text "profile" block (entity/name/role/about/email) saves explicitly
+    // via the Identity card's Save button; everything else autosaves. profileDirty
+    // drives that button.
     profileDirty() {
       const saved = JSON.parse(this.savedSnapshot).identity || {};
       const cur = this.settings.identity || {};
       return ['entity_type', 'name', 'role', 'about', 'not_description', 'audience', 'contact_email'].some(
         (k) => (cur[k] || '') !== (saved[k] || ''),
       );
+    },
+    // Services have their OWN card and Save button (not autosaved, not part of the
+    // profile block). Compare only meaningful (named) rows so a blank scaffolding
+    // row never marks the card dirty — it isn't saved anyway.
+    servicesDirty() {
+      const saved = JSON.parse(this.savedSnapshot).identity || {};
+      const cur = this.settings.identity || {};
+      const named = (arr) => JSON.stringify(
+        (Array.isArray(arr) ? arr : [])
+          .filter((s) => s && (s.name || '').trim())
+          .map((s) => ({ name: (s.name || '').trim(), description: (s.description || '').trim(), url: (s.url || '').trim() })),
+      );
+      return named(cur.services) !== named(saved.services);
     },
     // Serializes every AUTOSAVED field (toggles, selections, chips). When this
     // changes we debounce-autosave — without touching the unsaved profile text.
@@ -111,7 +127,9 @@ export default {
         ai_noai_header: s.ai_noai_header, tdm_policy_url: s.tdm_policy_url,
         block_agents: s.block_agents, block_spoofed: s.block_spoofed, blocked_agents: s.blocked_agents, allowed_agents: s.allowed_agents,
         security: s.security,
-        expertise: id.expertise, same_as: id.same_as, services: id.services,
+        expertise: id.expertise, same_as: id.same_as,
+        // NB: services are NOT here — they save explicitly via the Identity card's
+        // Save button (see profileDirty/saveProfile), not on every keystroke.
       });
     },
     // Third-party DECLARED resources the owner can publish/suppress. Our own
@@ -273,6 +291,35 @@ export default {
         this.flash('error', e.message);
       } finally {
         this.profileSaving = false;
+      }
+    },
+    // Persist the services list (its own card + Save button). Freezes the in-progress
+    // profile draft to its saved values — the profile owns its own Save — then adopts
+    // the stored services back so blank rows the sanitiser dropped disappear.
+    async saveServices() {
+      if (this.servicesSaving || !this.servicesDirty) {
+        return;
+      }
+      this.servicesSaving = true;
+      try {
+        const savedId = (JSON.parse(this.savedSnapshot).identity) || {};
+        const payload = JSON.parse(JSON.stringify(this.settings));
+        ['entity_type', 'name', 'role', 'about', 'not_description', 'audience', 'contact_email'].forEach((k) => {
+          if (payload.identity) payload.identity[k] = savedId[k];
+        });
+        const res = await this.api.saveSettings(payload);
+        const storedServices = (res.settings && res.settings.identity && Array.isArray(res.settings.identity.services))
+          ? res.settings.identity.services : [];
+        if (this.settings.identity) this.settings.identity.services = storedServices;
+        this.savedSnapshot = JSON.stringify(res.settings);
+        this.readiness = res.readiness || this.readiness;
+        this.servicesSaved = true;
+        clearTimeout(this._svcSavedTimer);
+        this._svcSavedTimer = setTimeout(() => { this.servicesSaved = false; }, 2500);
+      } catch (e) {
+        this.flash('error', e.message);
+      } finally {
+        this.servicesSaving = false;
       }
     },
     // Restore factory defaults. Wipes the stored option server-side, then
@@ -592,10 +639,14 @@ export default {
           :profile-dirty="profileDirty"
           :profile-saving="profileSaving"
           :profile-saved="profileSaved"
+          :services-dirty="servicesDirty"
+          :services-saving="servicesSaving"
+          :services-saved="servicesSaved"
           :resetting="resetting"
           :defaults="defaults"
           :llms-full-estimate="llmsFullEstimate"
           @save-profile="saveProfile"
+          @save-services="saveServices"
           @reset="resetSettings"
           @reopen-wizard="reopenWizard"
         />
