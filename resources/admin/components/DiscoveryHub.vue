@@ -99,7 +99,7 @@ export default {
         <li><a :href="endpoints.rest" target="_blank" rel="noopener">REST: /agentimus/v1/discovery</a></li>
       </ul>
 
-      <div class="ar-wd-stats">
+      <div class="ar-wd-stats ar-wd-stats--fill">
         <div class="ar-wd-stat">
           <strong>{{ counts.resources }}</strong>
           <span>providers</span>

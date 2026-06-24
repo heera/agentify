@@ -349,7 +349,7 @@ export default {
           </div>
         </div>
 
-        <div class="ar-wd-stats ar-act-stats">
+        <div class="ar-wd-stats ar-act-stats ar-act-stats--4">
           <div class="ar-wd-stat"><strong>{{ totals.today }}</strong><span>today</span></div>
           <div class="ar-wd-stat"><strong>{{ totals.week }}</strong><span>7 days</span></div>
           <div class="ar-wd-stat"><strong>{{ totals.month }}</strong><span>{{ data.window || 30 }} days</span></div>
@@ -427,7 +427,7 @@ export default {
           own site — no IP, nothing sent anywhere. Some AI visits can’t be detected, so read this as a
           floor: at least this many.
         </p>
-        <div class="ar-wd-stats ar-act-stats">
+        <div class="ar-wd-stats ar-act-stats ar-act-stats--3">
           <div class="ar-wd-stat"><strong>{{ refTotals.today }}</strong><span>today</span></div>
           <div class="ar-wd-stat"><strong>{{ refTotals.window }}</strong><span>{{ data.window || 30 }} days</span></div>
           <div class="ar-wd-stat"><strong>{{ refSources.length }}</strong><span>sources</span></div>

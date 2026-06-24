@@ -43,7 +43,7 @@ export default {
 
 <template>
   <section class="ar-card">
-    <div class="ar-card__head">
+    <div class="ar-card__head ar-card__head--inline">
       <h2 class="ar-card__title">Readiness report</h2>
       <div class="ar-card__actions">
         <button type="button" class="ar-btn" :disabled="liveRunning" @click="verifyLive">

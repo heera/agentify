@@ -427,9 +427,46 @@
   .ar__rail { position: static; margin-top: 22px; }
 }
 
-@container (max-width: 600px) {
-  .ar__bar { gap: 16px; padding: 0 16px; }
-  .ar__tabs { gap: 18px; }
+/* Narrow widths: stack the header into two rows so no tab is ever hidden. Below
+   ~720px the inline tab strip can't fit all four and would scroll silently (the
+   rightmost tabs vanish with no scrollbar to hint at them). Row 1 is the brand
+   alone; row 2 is the navbar itself — tabs spread across it with the bell pinned
+   to the right (a touch smaller) so the notification sits on the menu row. */
+@container (max-width: 720px) {
+  .ar__bar {
+    flex-wrap: wrap;
+    align-items: center;
+    /* Row-gap applies twice across the invisible break line → ~12px brand↔nav. */
+    gap: 6px 16px;
+    padding: 11px 16px;
+    min-height: 0;
+  }
+  /* Repurpose the brand→nav arrow as an invisible full-width line break: it bumps
+     the tabs + bell onto the row below while leaving the brand its own top row —
+     without turning the brand button itself into a full-width tap target. */
+  .ar__sep { display: block; flex-basis: 100%; height: 0; margin: 0; }
+  .ar__sep svg { display: none; }
+  /* Condense the masthead: drop the version line, shrink the mark + wordmark. */
+  .ar__ver { display: none; }
+  .ar__mark { width: 26px; height: 26px; }
+  .ar__logo { width: 16px; }
+  .ar__name { font-size: 15px; }
+  /* Navbar row: tabs sit together at the left (a calm menu-style gap, not spread
+     edge-to-edge) and wrap instead of scrolling; the bell stays pinned to the
+     right. flex-basis:0 lets the tab strip shrink-to-fit beside the bell so the
+     bell never gets bumped onto its own line on a phone. */
+  .ar__tabs {
+    flex: 1 1 0; min-width: 0;
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 9px 22px;
+  }
+  .ar__review { flex: 0 0 auto; align-self: center; }
+  /* Slightly smaller bell so it reads as a peer of the tab labels, not a button
+     looming over them. */
+  .ar__review-btn { padding: 4px 7px; gap: 5px; }
+  .ar__review-btn > svg:first-child { width: 13px; height: 13px; }
+  .ar__review-caret { width: 10px; height: 10px; }
   .ar__pagehead { padding-left: 16px; padding-right: 16px; }
   .ar__body { padding: 20px 16px; }
 }
@@ -988,8 +1025,41 @@ select.ar-input {
 .ar-wd-stat span { font-family: var(--ar-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ar-ink-faint); }
 .ar-wd-stat small { margin-top: 2px; font-size: 11px; line-height: 1.3; color: var(--ar-ink-soft); }
 .ar-wd-stat.is-bad strong { color: var(--ar-bad); }
+/* A stat count that doesn't divide evenly into a fixed grid (the Discovery hub's
+   five totals) flex-fills instead, so the last row stretches to the full width
+   rather than leaving an empty bordered cell. */
+.ar-wd-stats--fill { display: flex; flex-wrap: wrap; }
+/* Basis matches the grid's 108px min so it keeps the same per-row count as before
+   (e.g. five-up when wide); flex-grow just lets a short last row fill the width. */
+.ar-wd-stats--fill .ar-wd-stat { flex: 1 1 108px; }
 
 .ar-wd-empty { margin: 8px 0 0; color: var(--ar-ink-soft); font-size: 13px; }
+
+/* ---- Small screens: ease the chrome down so cards aren't desktop-sized on a
+   phone — titles + big stat numbers shrink a notch, buttons stop hogging the
+   row, and header action rows / the Discovery endpoint stack vertically. ---- */
+@container (max-width: 560px) {
+  /* Card header: title/lead on its own line, action buttons below it rather than
+     squeezed beside it (mainly Endpoint activity, whose long lead needs the room). */
+  .ar-card__head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .ar-card__actions { width: 100%; }
+  /* …but a header that's just a short title + a couple of buttons (Readiness
+     report) stays on one row — with the smaller buttons it fits — and only wraps
+     the buttons below if it truly can't. */
+  .ar-card__head--inline { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+  .ar-card__head--inline .ar-card__actions { width: auto; }
+  /* Buttons sit nearer the text size and don't dominate. */
+  .ar-btn { padding: 9px 16px; font-size: 11px; }
+  /* Headings + prominent numbers ease down. */
+  .ar-card__title { font-size: 16.5px; }
+  .ar-wd-stat strong { font-size: 20px; }
+  .ar-checkgroup__name { font-size: 15px; }
+  /* Discovery endpoint: stack the URL box and Re-scan so the path keeps one line
+     and the button spans the width instead of crowding it. */
+  .ar-wd-endpoint-row { flex-direction: column; align-items: stretch; }
+  .ar-wd-endpoint-row .ar-btn { width: 100%; }
+  .ar-wd-canonical__path { font-size: 12px; }
+}
 
 /* Provider groups: Declared (always shown) and Auto-discovered (collapsible). */
 .ar-wd-group { margin-top: 18px; }
@@ -1132,8 +1202,10 @@ select.ar-input {
 /* ---- Dashboard ---------------------------------------------------------- */
 .ar-act { display: grid; gap: 22px; min-width: 0; }
 
-/* Clickable at-a-glance summary row */
-.ar-dash-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+/* Clickable at-a-glance summary row. Fixed 4-up (not auto-fit) so the four
+   tiles always span the full width as one row; auto-fit would orphan the 4th
+   tile on its own line at in-between widths. Collapses to a tidy 2×2 below. */
+.ar-dash-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .ar-dash-tile {
   appearance: none; cursor: pointer; text-align: left;
   display: flex; flex-direction: column; gap: 4px;
@@ -1151,6 +1223,15 @@ select.ar-input {
 .ar-dash-tile__sub { font-size: 11px; color: var(--ar-ink-soft); }
 .ar-act-controls { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
 .ar-act-stats { margin-top: 4px; }
+/* Each stat strip fills its row with a fixed column count matching its number of
+   totals — never the generic .ar-wd-stats auto-fit, which orphaned a lone cell
+   beside an empty bordered box. Endpoint activity has 4 totals, Traffic-from-AI 3. */
+.ar-act-stats--4 { grid-template-columns: repeat(4, 1fr); }
+.ar-act-stats--3 { grid-template-columns: repeat(3, 1fr); }
+/* Narrow: the summary tiles need room, so drop them to a tidy 2×2; the 4-up stat
+   strip folds to 2×2 on phones (the 3-up strip stays — three short stats fit). */
+@container (max-width: 720px) { .ar-dash-sum { grid-template-columns: repeat(2, 1fr); } }
+@container (max-width: 480px) { .ar-act-stats--4 { grid-template-columns: repeat(2, 1fr); } }
 
 /* Daily bars */
 .ar-act-sparkwrap { position: relative; margin: 18px 0 6px; }
