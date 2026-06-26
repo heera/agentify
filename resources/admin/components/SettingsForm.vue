@@ -1037,7 +1037,7 @@ export default {
           <small>Wipe every setting back to the recommended factory defaults. This also <em>clears your identity profile</em> (name, about, links) and can’t be undone.</small>
         </div>
         <button type="button" class="ar-btn ar-btn--danger" :disabled="resetting" @click="openReset">
-          {{ resetting ? 'Resetting…' : 'Reset' }}
+          {{ resetting ? 'Resetting…' : 'Reset all' }}
         </button>
       </div>
     </section>
