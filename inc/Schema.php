@@ -74,8 +74,12 @@ final class Schema {
 			}
 		}
 
-		if ( is_singular( Content::post_types() ) ) {
-			$post = get_post();
+		// Per-post structured data, but never for content the HTML site itself
+		// gates: a password-protected post (whose body Q&A would otherwise leak
+		// into the public FAQPage node) or a non-published status. Mirrors the
+		// guard in Markdown::post(); the site-level identity nodes above stand.
+		$post = is_singular( Content::post_types() ) ? get_post() : null;
+		if ( $post && 'publish' === $post->post_status && '' === (string) $post->post_password ) {
 			$node = $this->article_node( $post );
 			/**
 			 * Filter the per-post schema node. An add-on (e.g. WooCommerce) can

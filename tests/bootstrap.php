@@ -82,10 +82,18 @@ namespace {
 	if ( ! function_exists( 'get_option' ) )            { function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['_af_options'] ) ? $GLOBALS['_af_options'][ $k ] : $d; } }
 	if ( ! function_exists( 'update_option' ) )         { function update_option( $k, $v ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
 	if ( ! function_exists( 'add_option' ) )            { function add_option( $k, $v ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
-	if ( ! function_exists( 'get_post' ) )              { function get_post( $id ) { return isset( $GLOBALS['_af_posts'][ (int) $id ] ) ? $GLOBALS['_af_posts'][ (int) $id ] : null; } }
-	if ( ! function_exists( 'get_the_title' ) )         { function get_the_title( $p ) { $p = is_object( $p ) ? $p : get_post( $p ); return $p ? (string) $p->post_title : ''; } }
-	if ( ! function_exists( 'get_permalink' ) )         { function get_permalink( $p ) { $id = is_object( $p ) ? $p->ID : (int) $p; return 'https://example.com/?p=' . $id; } }
-	function _af_reset_options() { $GLOBALS['_af_options'] = array(); $GLOBALS['_af_did_actions'] = array(); $GLOBALS['_af_posts'] = array(); unset( $GLOBALS['_af_available_post_types'] ); }
+	if ( ! function_exists( 'get_post' ) )              { function get_post( $id = 0 ) { $id = (int) $id; if ( ! $id ) { $id = (int) ( $GLOBALS['_af_current_post_id'] ?? 0 ); } return isset( $GLOBALS['_af_posts'][ $id ] ) ? $GLOBALS['_af_posts'][ $id ] : null; } }
+	if ( ! function_exists( 'get_the_title' ) )         { function get_the_title( $p = null ) { $p = is_object( $p ) ? $p : get_post( $p ); return $p ? (string) $p->post_title : ''; } }
+	if ( ! function_exists( 'get_permalink' ) )         { function get_permalink( $p = 0 ) { $p = is_object( $p ) ? $p : get_post( $p ); return 'https://example.com/?p=' . ( $p ? (int) $p->ID : 0 ); } }
+	// Singular-view surface for the Schema privacy tests (toggle via the globals).
+	if ( ! function_exists( 'is_singular' ) )           { function is_singular( $types = '' ) { return ! empty( $GLOBALS['_af_is_singular'] ); } }
+	if ( ! function_exists( 'is_front_page' ) )         { function is_front_page() { return ! empty( $GLOBALS['_af_is_front_page'] ); } }
+	if ( ! function_exists( 'do_blocks' ) )             { function do_blocks( $content ) { return (string) $content; } }
+	if ( ! function_exists( 'get_the_date' ) )          { function get_the_date( $format = '', $p = null ) { return '2026-01-01T00:00:00+00:00'; } }
+	if ( ! function_exists( 'get_the_modified_date' ) ) { function get_the_modified_date( $format = '', $p = null ) { return '2026-01-02T00:00:00+00:00'; } }
+	if ( ! function_exists( 'get_the_category' ) )      { function get_the_category( $id = false ) { return isset( $GLOBALS['_af_categories'] ) ? (array) $GLOBALS['_af_categories'] : array(); } }
+	if ( ! function_exists( 'get_category_link' ) )     { function get_category_link( $cat ) { return 'https://example.com/cat/'; } }
+	function _af_reset_options() { $GLOBALS['_af_options'] = array(); $GLOBALS['_af_did_actions'] = array(); $GLOBALS['_af_posts'] = array(); unset( $GLOBALS['_af_available_post_types'], $GLOBALS['_af_current_post_id'], $GLOBALS['_af_is_singular'], $GLOBALS['_af_is_front_page'], $GLOBALS['_af_categories'] ); }
 	// Always-miss transient stubs so cached endpoint bodies (e.g. security.txt)
 	// recompute deterministically in tests.
 	if ( ! function_exists( 'get_transient' ) )         { function get_transient( $k ) { return false; } }
@@ -137,6 +145,7 @@ namespace Agentimus {
 					? (array) $GLOBALS['_af_available_post_types']
 					: array( 'post', 'page' );
 			}
+			public static function post_types() { return self::available(); }
 			public static function source( $post_type ) { return ''; }
 			// Mirrors the real Content::markdown_source closely enough for the Markdown
 			// privacy tests: run the (mocked) the_content filter over the stored body.

@@ -166,6 +166,7 @@ final class Sitemap {
 			array(
 				'post_type'              => $type,
 				'post_status'            => 'publish',
+				'has_password'           => false, // Never list URLs the HTML site gates behind a password (matches core's sitemap).
 				'posts_per_page'         => self::per_page(),
 				'paged'                  => $page,
 				'orderby'                => 'modified',
@@ -226,10 +227,27 @@ final class Sitemap {
 		return max( 1, min( 50000, $n ) );
 	}
 
-	/** Published count for a type. */
+	/**
+	 * Published, non-password-protected count for a type — must match what
+	 * sub_xml() actually lists, so pagination never declares a page that the
+	 * password filter leaves short or empty. (wp_count_posts() can't exclude
+	 * password-protected posts, so we count via WP_Query.)
+	 */
 	private static function published_count( $type ) {
-		$counts = wp_count_posts( $type );
-		return isset( $counts->publish ) ? (int) $counts->publish : 0;
+		$q = new \WP_Query(
+			array(
+				'post_type'              => $type,
+				'post_status'            => 'publish',
+				'has_password'           => false,
+				'posts_per_page'         => 1,
+				'fields'                 => 'ids',
+				'no_found_rows'          => false,
+				'ignore_sticky_posts'    => true,
+				'update_post_meta_cache' => false,
+				'update_post_term_cache' => false,
+			)
+		);
+		return (int) $q->found_posts;
 	}
 
 	/** Number of sub-sitemap pages a type needs (0 if it has no content). */
@@ -256,6 +274,7 @@ final class Sitemap {
 			array(
 				'post_type'        => $type,
 				'post_status'      => 'publish',
+				'has_password'     => false,
 				'orderby'          => 'modified',
 				'order'            => 'DESC',
 				'numberposts'      => 1,
@@ -277,6 +296,7 @@ final class Sitemap {
 			array(
 				'post_type'        => Content::post_types(),
 				'post_status'      => 'publish',
+				'has_password'     => false,
 				'orderby'          => 'modified',
 				'order'            => 'DESC',
 				'numberposts'      => 1,
