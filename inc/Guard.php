@@ -147,16 +147,30 @@ final class Guard {
 	}
 
 	/**
-	 * Whether the UA belongs to a protected agent that must never be denied — the
-	 * accident-guard against an over-broad rule. Defaults to the major search
-	 * engines (blocking those carries real, silent SEO cost). Filterable: empty it
-	 * to allow blocking anything, or extend it with your own always-allow agents.
+	 * Whether the UA is TRUSTED — must never be denied, and never surfaced for
+	 * review — the accident-guard against an over-broad rule. Trust has two
+	 * forgery-resistant sources:
+	 *   • a STRUCTURED match for a real search engine (see engine_signatures) —
+	 *     deliberately NOT a loose substring, so a scanner that merely appends
+	 *     "googlebot" to its UA earns nothing; and
+	 *   • the owner's explicit allow-list (the activity panel's "Allow"), matched
+	 *     as a substring because the owner chose those tokens themselves.
+	 *
+	 * A User-Agent is forgeable, so this can never PROVE identity (only verifying
+	 * the source network address — e.g. reverse DNS — can, and that isn't reliably
+	 * available behind every CDN/host, so we don't depend on it). What structured
+	 * matching does remove is the trivial "append the magic word" bypass, with no
+	 * network call — identical behaviour on Cloudflare, a cloud host, or cheap
+	 * shared hosting.
 	 *
 	 * @param string $ua_lc Lowercased User-Agent.
 	 * @return bool
 	 */
 	private static function is_protected( $ua_lc ) {
-		foreach ( self::protected_agents() as $allow ) {
+		if ( self::is_real_engine( $ua_lc ) ) {
+			return true;
+		}
+		foreach ( self::allow_substrings() as $allow ) {
 			if ( '' !== $allow && false !== strpos( $ua_lc, $allow ) ) {
 				return true;
 			}
@@ -165,27 +179,79 @@ final class Guard {
 	}
 
 	/**
-	 * The always-allow agent substrings (lowercase). The default protects the
-	 * search engines whose accidental blocking would hurt the site most.
+	 * Whether a lowercased UA structurally matches a real search-engine crawler.
+	 * Each signature requires the engine's product token in its genuine form — the
+	 * `name/version` (or `Googlebot-Image/…`) shape at a UA-token boundary — so a
+	 * forged "…some scanner googlebot" (a bare word, no version, not at a product
+	 * position) is not mistaken for the real crawler.
+	 *
+	 * @param string $ua_lc Lowercased User-Agent.
+	 * @return bool
+	 */
+	public static function is_real_engine( $ua_lc ) {
+		foreach ( self::engine_signatures() as $signature ) {
+			if ( 1 === @preg_match( $signature, $ua_lc ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors -- a filtered pattern must never warn on a public request.
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Structured UA signatures for the built-in protected search engines —
+	 * anchored to a token boundary and the real product/version shape, NOT a bare
+	 * substring. Patterns run against the lowercased UA. Filterable so a site can
+	 * add or tighten engines (e.g. its CDN's own verified crawler).
+	 *
+	 * @return string[] PCRE patterns.
+	 */
+	public static function engine_signatures() {
+		$signatures = array(
+			'~(?:^|[\s(;,])googlebot[/-]~', // Googlebot/2.1, Googlebot-Image/1.0, …
+			'~(?:^|[\s(;,])bingbot/~',      // bingbot/2.0
+			'~(?:^|[\s(;,])duckduckbot/~',  // DuckDuckBot/1.1
+			'~(?:^|[\s(;,])applebot/~',     // Applebot/0.1
+			'~(?:^|[\s(;,])yandex[a-z]*/~', // YandexBot/3.0, YandexImages/3.0, …
+		);
+		/**
+		 * Filter the structured search-engine signatures the Guard treats as
+		 * always-allowed (and never surfaces for review). Lowercase-subject PCRE.
+		 *
+		 * @param string[] $signatures PCRE patterns.
+		 */
+		return (array) apply_filters( 'agentimus_engine_signatures', $signatures );
+	}
+
+	/**
+	 * The owner's explicit always-allow substrings: the activity panel's "Allow"
+	 * list, plus the legacy filter. Matched as plain substrings because the owner
+	 * picked the tokens deliberately. The built-in search engines are NOT here —
+	 * they are matched structurally (see engine_signatures).
+	 *
+	 * @return string[]
+	 */
+	private static function allow_substrings() {
+		$allowed = (array) ( new Settings() )->get( 'allowed_agents', array() );
+		/**
+		 * Filter the owner's always-allow substrings — agents the block feature
+		 * must never deny, whatever the denylist or spoof heuristic say.
+		 *
+		 * @param string[] $allowed Lowercase UA substrings.
+		 */
+		$allowed = (array) apply_filters( 'agentimus_block_allowlist', $allowed );
+		return array_values( array_filter( array_map( 'strtolower', array_map( 'trim', $allowed ) ) ) );
+	}
+
+	/**
+	 * The always-allow agents, for display/inspection: the built-in search-engine
+	 * NAMES plus the owner's allow-list. NOTE matching uses engine_signatures()
+	 * (structured) + allow_substrings(), not this loose list — see is_protected().
 	 *
 	 * @return string[]
 	 */
 	public static function protected_agents() {
-		$protected = array( 'googlebot', 'bingbot', 'duckduckbot', 'applebot', 'yandex' );
-
-		// The owner's own trust-list (added via the activity panel's "Allow"): these
-		// are never blocked AND never flagged for review, exactly like the engines above.
-		$allowed   = (array) ( new Settings() )->get( 'allowed_agents', array() );
-		$protected = array_merge( $protected, $allowed );
-
-		/**
-		 * Filter the always-allow list — agents that the block feature must never
-		 * deny, whatever the denylist or spoof heuristic say.
-		 *
-		 * @param string[] $protected Lowercase UA substrings.
-		 */
-		$protected = (array) apply_filters( 'agentimus_block_allowlist', $protected );
-		return array_values( array_filter( array_map( 'strtolower', array_map( 'trim', $protected ) ) ) );
+		$engines = array( 'googlebot', 'bingbot', 'duckduckbot', 'applebot', 'yandex' );
+		return array_values( array_unique( array_merge( $engines, self::allow_substrings() ) ) );
 	}
 
 	/**

@@ -138,6 +138,28 @@ final class GuardTest extends TestCase {
 		$this->assertTrue( Guard::denies( self::AHREFS ) );
 	}
 
+	public function test_appending_a_protected_token_does_not_evade_a_specific_rule() {
+		// The bypass: a scanner appends "googlebot" to its UA to ride the protected
+		// allow-list. Structured engine matching means the bare word earns no trust,
+		// so the owner's specific rule still blocks it.
+		$forged = 'Mozilla/5.0 (compatible; EvilScraper/1.0; +http://evil.test) googlebot';
+		$this->configure( array( 'block_agents' => true, 'block_spoofed' => false, 'blocked_agents' => array( 'evilscraper' ) ) );
+		$this->assertTrue( Guard::denies( $forged ), 'A forged "googlebot" suffix must not buy immunity.' );
+		// …while the real Googlebot and its image variant stay protected.
+		$this->assertFalse( Guard::denies( self::GOOGLEBOT ) );
+		$this->assertFalse( Guard::denies( 'Googlebot-Image/1.0 (+http://www.google.com/bot.html)' ) );
+	}
+
+	public function test_is_real_engine_accepts_genuine_crawlers_and_rejects_forgeries() {
+		$this->assertTrue( Guard::is_real_engine( strtolower( self::GOOGLEBOT ) ) );
+		$this->assertTrue( Guard::is_real_engine( 'mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)' ) );
+		$this->assertTrue( Guard::is_real_engine( 'mozilla/5.0 (compatible; yandexbot/3.0; +http://yandex.com/bots)' ) );
+		// Bare/appended tokens with no product/version shape are not the real engine.
+		$this->assertFalse( Guard::is_real_engine( 'evilscraper/1.0 (+googlebot)' ) );
+		$this->assertFalse( Guard::is_real_engine( 'sneaky bingbot scanner' ) );
+		$this->assertFalse( Guard::is_real_engine( 'something googlebot' ) );
+	}
+
 	public function test_all_wildcard_entry_is_a_noop_not_a_block_everyone() {
 		$this->configure( array( 'block_agents' => true, 'block_spoofed' => false, 'blocked_agents' => array( '*' ) ) );
 		$this->assertFalse( Guard::denies( self::CHROME ) );

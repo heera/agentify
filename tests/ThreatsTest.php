@@ -157,6 +157,17 @@ final class ThreatsTest extends TestCase {
 		$this->assertSame( 0, $r['counts']['new'] );
 	}
 
+	public function test_a_forged_googlebot_is_still_surfaced_for_review() {
+		// Appending "googlebot" to a UA used to make it vanish from the panel (the
+		// monitoring blind spot). With structured engine matching, a forgery that
+		// lacks the real product token is no longer treated as trusted, so a heavy
+		// source is still surfaced.
+		$forged = 'Mozilla/5.0 (compatible; EvilScraper/1.0; +http://evil.test) googlebot';
+		$r      = $this->analyze( array( $this->source( $forged, 'Other bot', 800, 10 * DAY_IN_SECONDS, 0 ) ) );
+		$this->assertCount( 1, $r['sources'], 'A forged "googlebot" must not hide from review.' );
+		$this->assertTrue( $r['sources'][0]['flags']['heavy'] );
+	}
+
 	public function test_an_allowed_agent_is_excluded_from_the_panel() {
 		// "Allow" adds the token to allowed_agents → it's treated as trusted/protected
 		// and never appears in the review list again.
