@@ -31,7 +31,7 @@ final class Settings {
 			'enable_activity'  => true,
 			'enable_sitemap'   => true, // Gap-only fallback: stands down when core/SEO provides one, so it's safe on by default.
 			'enable_security_txt' => false, // Opt-in: generate /.well-known/security.txt only when asked AND no file/other plugin already provides one.
-			'enable_signing'   => false,    // Opt-in: RFC 9421 signatures on the discovery docs + a published Web Bot Auth key directory.
+			'enable_signing'   => true,     // On by default: RFC 9421 signatures on the discovery docs + a published Web Bot Auth key directory. Feature-detected — silently stands down when libsodium is unavailable, so it's safe as a default.
 			'llms_full_posts'  => 50,
 			'llms_full_max_kb' => 1024, // Hard byte budget for /llms-full.txt (KB): generation stops cleanly here and links the index. Keeps the file ingestible and under common 1 MB object-cache row limits.
 			'post_types'       => self::default_post_types(),

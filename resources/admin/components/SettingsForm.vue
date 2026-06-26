@@ -123,7 +123,7 @@ export default {
         { key: 'enable_schema', label: 'Rich data for search', hint: 'Adds structured data search engines and assistants understand (JSON-LD). Leave off if your SEO plugin already does this.' },
         { key: 'enable_activity', label: 'Visit log', hint: 'Records which AI assistants fetch your AI files, and counts visitors AI sends you. Local-only, no IP addresses.' },
         { key: 'enable_sitemap', label: 'Sitemap (backup)', hint: 'Adds a sitemap only when WordPress core and your SEO plugin don’t already provide one — never duplicates.' },
-        { key: 'enable_signing', label: 'Sign discovery docs', hint: 'Cryptographically sign your discovery files (Ed25519) and publish a key directory so agents can verify they came from you. Experimental (Web Bot Auth).' },
+        { key: 'enable_signing', label: 'Verified responses', hint: 'Cryptographically signs your AI files so assistants can confirm they really came from your site and weren’t tampered with on the way. On by default and needs no setup. (Ed25519 / Web Bot Auth)' },
       ];
     },
     // A heads-up under the posts-per-type input: the server's COUNT-only estimate
@@ -543,19 +543,20 @@ export default {
 
     <!-- Security.txt --------------------------------------------------- -->
     <section id="ar-sec-security" class="ar-card">
-      <h2 class="ar-card__title">Security.txt</h2>
+      <h2 class="ar-card__title">Security contact</h2>
       <p class="ar-card__lead">
-        A machine- and human-readable security contact at
-        <code>/.well-known/security.txt</code> (RFC 9116). Generated only when enabled —
-        and it stands aside automatically if a real file or another plugin already provides one.
+        If someone spots a security problem on your site, this tells them where to report it —
+        published at the standard place (<code>/.well-known/security.txt</code>) that researchers and
+        agents look. <strong>What to do:</strong> turn it on and add one contact (usually your email).
+        It steps aside automatically if your site already provides one.
       </p>
 
       <label class="ar-toggle">
         <input v-model="settings.enable_security_txt" type="checkbox" />
         <span class="ar-toggle__track" aria-hidden="true"></span>
         <span class="ar-toggle__text">
-          <strong>Generate security.txt</strong>
-          <small>Publish a vulnerability-disclosure contact for security researchers and agents.</small>
+          <strong>Publish a security contact</strong>
+          <small>So researchers know how to reach you to report a problem responsibly, instead of disclosing it publicly.</small>
         </span>
       </label>
 

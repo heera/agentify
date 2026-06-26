@@ -50,6 +50,17 @@ export default {
     selectedLabels() {
       return this.postTypes.filter((p) => this.types.includes(p.slug)).map((p) => p.label);
     },
+    // Plain-language reassurance for the summary step: the strong protections that
+    // are on automatically, so the admin SEES the value without configuring it.
+    protections() {
+      const s = this.settings || {};
+      const cs = s.content_signal || {};
+      const list = ['Discoverable by AI assistants — page guide, plain-text pages and rich data'];
+      if (s.enable_signing !== false) list.push('Signed responses, so assistants can verify they’re really from you');
+      if (!cs.ai_train) list.push('Your content is reserved from AI training by default');
+      if (s.enable_ai_header !== false || s.enable_tdmrep !== false) list.push('Your AI-usage choices stated everywhere agents look');
+      return list;
+    },
   },
   created() {
     this.applyInitial();
@@ -226,6 +237,12 @@ export default {
                     <p class="ar-preview__label">AI assistants can read</p>
                     <ul class="ar-preview__list">
                       <li><span>Content</span><span class="ar-preview__muted">{{ selectedLabels.length ? selectedLabels.join(', ') : 'nothing selected' }}</span></li>
+                    </ul>
+                  </div>
+                  <div class="ar-preview__group">
+                    <p class="ar-preview__label">Working automatically — nothing to configure</p>
+                    <ul class="ar-wiz__protect">
+                      <li v-for="p in protections" :key="p">{{ p }}</li>
                     </ul>
                   </div>
                 </div>

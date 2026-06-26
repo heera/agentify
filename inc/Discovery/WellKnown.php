@@ -374,7 +374,18 @@ final class WellKnown {
 	private function current_url() {
 		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
 		$path = '/' . ltrim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
-		return home_url( $path );
+		// Take the canonical scheme+host from home_url() but keep the LITERAL request
+		// path. home_url( $path ) would re-prepend the site's subpath on a "WordPress
+		// in a subdirectory" install (e.g. /blog/blog/.well-known/…), so the signed
+		// @target-uri wouldn't match the URL the agent actually fetched, and every
+		// signature would fail to verify there.
+		$home   = (array) wp_parse_url( home_url( '/' ) );
+		$scheme = ! empty( $home['scheme'] ) ? $home['scheme'] : ( is_ssl() ? 'https' : 'http' );
+		$host   = isset( $home['host'] ) ? $home['host'] : '';
+		if ( ! empty( $home['port'] ) ) {
+			$host .= ':' . $home['port'];
+		}
+		return '' !== $host ? $scheme . '://' . $host . $path : home_url( $path );
 	}
 
 	/**

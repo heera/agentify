@@ -31,7 +31,17 @@ final class SignerTest extends TestCase {
 		return new Signer( new Settings() );
 	}
 
-	public function test_off_by_default_emits_nothing() {
+	public function test_on_by_default() {
+		// Signing ships ON — the recommended best-default. (Runtime still needs
+		// libsodium; enabled() folds that in.)
+		$this->assertTrue( ( new Settings() )->enabled( 'enable_signing' ) );
+		if ( function_exists( 'sodium_crypto_sign_detached' ) ) {
+			$this->assertTrue( ( new Signer( new Settings() ) )->enabled() );
+		}
+	}
+
+	public function test_disabled_emits_nothing() {
+		update_option( Settings::OPTION, array( 'enable_signing' => false ) );
 		$signer = new Signer( new Settings() );
 		$this->assertFalse( $signer->enabled() );
 		$this->assertSame( '', $signer->directory() );
