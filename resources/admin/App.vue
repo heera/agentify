@@ -203,6 +203,14 @@ export default {
         { label: 'mcp/server-card.json', url: e.mcpServerCard },
       ].filter((d) => d.url);
     },
+    // Compact validation status for the rail: green when nothing is wrong,
+    // otherwise toned by the worst notice level (error → bad, else warn).
+    validation() {
+      const notices = (this.discovery && this.discovery.notices) || [];
+      if (!notices.length) return { ok: true, tone: 'good', count: 0 };
+      const tone = notices.some((n) => n.level === 'error') ? 'bad' : 'warn';
+      return { ok: false, tone, count: notices.length };
+    },
     noticeTitle() {
       return { success: 'Success', error: 'Error', warning: 'Warning' }[this.notice?.type] || 'Notice';
     },
@@ -769,6 +777,31 @@ export default {
               <a :href="d.url" target="_blank" rel="noopener">{{ d.label }}</a>
             </li>
           </ul>
+        </div>
+
+        <div class="ar-rail-card ar-rail-card--validation" :class="`is-${validation.tone}`">
+          <p class="ar-rail-card__label">Registration status</p>
+          <button
+            v-if="validation.ok"
+            type="button"
+            class="ar-rail-valid"
+            title="See what’s registered"
+            @click="goTo({ tab: 'discovery', anchor: 'ar-wd-providers' })"
+          >
+            <span class="ar-rail-valid__check" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+            </span>
+            <span class="ar-rail-valid__text">All registrations are valid</span>
+            <span class="ar-rail-valid__go" aria-hidden="true">→</span>
+          </button>
+          <button
+            v-else
+            type="button"
+            class="ar-rail-link ar-rail-valid__alert"
+            @click="goTo({ tab: 'discovery', anchor: 'ar-wd-validation' })"
+          >
+            {{ validation.count }} {{ validation.count === 1 ? 'issue' : 'issues' }} to fix — Review →
+          </button>
         </div>
 
         <div

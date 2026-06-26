@@ -237,34 +237,28 @@ export default {
       </p>
     </section>
 
-    <!-- Well-known + validation, side by side -->
-    <div class="ar-wd-cols">
-      <section class="ar-card">
-        <h2 class="ar-card__title">Well-known documents</h2>
-        <ul class="ar-wd-wk">
-          <li v-for="w in wellKnown" :key="w.name">
-            <a :href="w.url" target="_blank" rel="noopener"><code>/.well-known/{{ w.name }}</code></a>
-            <span class="ar-wd-src" :class="`is-${w.source}`">{{ sourceLabel(w.source) }}</span>
-          </li>
-        </ul>
-      </section>
+    <!-- Well-known documents — full width (validation status now lives as a
+         compact chip in the right rail). -->
+    <section class="ar-card">
+      <h2 class="ar-card__title">Well-known documents</h2>
+      <ul class="ar-wd-wk">
+        <li v-for="w in wellKnown" :key="w.name">
+          <a :href="w.url" target="_blank" rel="noopener"><code>/.well-known/{{ w.name }}</code></a>
+          <span class="ar-wd-src" :class="`is-${w.source}`">{{ sourceLabel(w.source) }}</span>
+        </li>
+      </ul>
+    </section>
 
-      <section class="ar-card" :class="{ 'ar-wd-valid': !notices.length }">
-        <h2 class="ar-card__title">Validation</h2>
-        <div v-if="!notices.length" class="ar-wd-allclear">
-          <span class="ar-wd-allclear__badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
-          </span>
-          <p class="ar-wd-allclear__title">All registrations valid</p>
-          <p class="ar-wd-allclear__sub">No schema or conflict issues detected.</p>
-        </div>
-        <ul v-else class="ar-wd-notices">
-          <li v-for="(n, i) in notices" :key="i" class="ar-wd-notice" :class="`is-${n.level}`">
-            <span class="ar-wd-notice__tag">{{ n.level.toUpperCase() }}</span>
-            <span>{{ n.message }}</span>
-          </li>
-        </ul>
-      </section>
-    </div>
+    <!-- Validation only takes main-column space when there is something to fix;
+         the all-clear state is the green chip in the rail. -->
+    <section v-if="notices.length" id="ar-wd-validation" class="ar-card">
+      <h2 class="ar-card__title">Registration status</h2>
+      <ul class="ar-wd-notices">
+        <li v-for="(n, i) in notices" :key="i" class="ar-wd-notice" :class="`is-${n.level}`">
+          <span class="ar-wd-notice__tag">{{ n.level.toUpperCase() }}</span>
+          <span>{{ n.message }}</span>
+        </li>
+      </ul>
+    </section>
   </div>
 </template>
