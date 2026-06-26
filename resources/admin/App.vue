@@ -829,6 +829,8 @@ export default {
             {{ autoStatus === 'saving' ? 'Saving…' : autoStatus === 'error' ? 'Save failed' : 'Saved' }}
           </span>
         </div>
+
+        <p class="ar-rail-foot" aria-label="Made with love by Sheikh Heera">Made with <span class="ar-rail-foot__heart" aria-hidden="true">♥</span> by <a class="ar-rail-foot__link" href="https://heera.it" target="_blank" rel="noopener">Sheikh Heera</a></p>
       </aside>
     </main>
   </div>
