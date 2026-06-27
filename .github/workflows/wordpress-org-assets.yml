@@ -2,16 +2,22 @@ name: Update WordPress.org assets
 
 # Syncs the plugin-listing assets (icon, banner, screenshots) and readme.txt to
 # WordPress.org WITHOUT cutting a release — useful for swapping a banner or
-# fixing readme copy between versions. Auto-runs only when the listing assets
-# change on main; also available on demand from the Actions tab /
-# `gh workflow run` (use that for a readme-only copy fix between releases).
+# fixing readme copy between versions.
 #
-# readme.txt is deliberately NOT an auto-trigger path: a release push bumps
-# readme.txt alongside code, and the 10up asset action refuses to deploy when
-# trunk has non-asset/non-readme code changes ("Other files have been
-# modified") — so on every release this workflow failed harmlessly but noisily.
-# The tagged deploy syncs readme.txt as part of the release anyway, and a
-# readme-only fix can still be pushed via workflow_dispatch.
+# MANUAL-ONLY (workflow_dispatch). The push auto-trigger was intentionally
+# REMOVED: the 10up asset action does a full SVN checkout and refuses to deploy
+# when trunk has non-asset/non-readme code changes ("Other files have been
+# modified"). During a release the new code lives on GitHub but reaches SVN
+# trunk only via the tagged deploy, so a release push (which bundles code +
+# screenshots) ALWAYS tripped that abort — a harmless but permanent red ✗ on
+# the head commit, recurring on every screenshot-bearing release. The tagged
+# deploy (deploy.yml) already publishes listing assets + readme on every release
+# via ASSETS_DIR, so nothing is lost by dropping the auto-trigger. Run this by
+# hand only for a between-release asset/readme tweak (when repo code already
+# matches SVN trunk, so the abort won't fire):
+#   gh workflow run wordpress-org-assets.yml
+#
+# It builds the Vue admin app FIRST (see below) for the same parity reason.
 #
 # It builds the Vue admin app FIRST. trunk already contains the compiled
 # assets/admin/ (committed by the deploy workflow), but that directory is
@@ -22,11 +28,6 @@ name: Update WordPress.org assets
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - '.wordpress-org/**'
 
 jobs:
   assets:
