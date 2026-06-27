@@ -110,69 +110,64 @@ full copy-paste reference, and the [**WP_Discovery Protocol**](https://github.co
 
 The dev-facing subset below; the plugin fires ~55 in all and every one is optional. They fall into three tiers: **Stable** — the `wpdiscovery_register` registration API plus `agentimus_entity_types` and `agentimus_cache_flushed`, frozen at WP_Discovery spec 1.0; **Extension** — the output-shaping filters listed here, supported but with signatures that may evolve between releases; and **Internal** — advanced Guard/Classifier/Activity/Settings tuning, not a third-party integration surface. The complete, tier-annotated catalogue with every signature is in [`examples/all-hooks-reference.php`](examples/all-hooks-reference.php).
 
-**Stable** — public and won't break under you: the registration API above (frozen at WP_Discovery spec 1.0), plus these identity/lifecycle hooks.
+### Stable
+
+Public and frozen at WP_Discovery spec 1.0 — safe to build on.
 
 ```php
-add_filter( 'agentimus_entity_types', function ( $types ) { $types[] = 'Restaurant'; return $types; } ); // schema.org subtypes in Settings → Identity
-add_action( 'agentimus_cache_flushed', function () {                                                     // after Agentimus regenerates its docs
-    my_cdn_purge( array( '/llms.txt', '/llms-full.txt', '/.well-known/discovery.json' ) );               //   → purge your CDN / page cache
+// Add selectable schema.org entity types to Settings → Identity.
+add_filter( 'agentimus_entity_types', function ( $types ) {
+    $types[] = 'Restaurant';
+    return $types;
 } );
-add_action( 'agentimus_booted', function ( $plugin ) {} );                                               // after boot (companion / Pro add-on seam)
+
+// Run after Agentimus regenerates its documents — purge your CDN / page cache.
+add_action( 'agentimus_cache_flushed', function () {
+    my_cdn_purge( array( '/llms.txt', '/llms-full.txt', '/.well-known/discovery.json' ) );
+} );
 ```
 
-**Extension** — supported output-shaping filters; useful for deeper integrations, but signatures may evolve between releases.
+Also stable: the `wpdiscovery_register` registration API (above) and the `agentimus_booted` lifecycle action.
+
+### Extension
+
+Supported output-shaping filters; signatures may evolve between releases.
 
 ```php
-// Discovery document & .well-known
-add_filter( 'agentimus_envelope', function ( $envelope, $registry ) { return $envelope; }, 10, 2 );        // the assembled discovery.json
-add_filter( 'agentimus_schema_url', function ( $url ) { return $url; } );                                  // the $schema value; '' to omit
-add_filter( 'agentimus_well_known_nested', function ( $names ) { return $names; } );                       // extra nested /.well-known/ paths
-add_filter( 'agentimus_signed_surfaces', function ( $docs ) { return $docs; } );                           // which discovery docs are signed
-add_filter( 'agentimus_signing_secret_key', function ( $key ) { return $key; } );                         // supply the Ed25519 key from a constant/env
+// Add a vendor extension to the discovery document (the x- namespace is yours).
+add_filter( 'agentimus_envelope', function ( $envelope, $registry ) {
+    $envelope['x-acme'] = array( 'portal' => 'https://acme.example' );
+    return $envelope;
+}, 10, 2 );
 
-// MCP & agents
-add_filter( 'agentimus_mcp', function ( $mcp, $resources ) { return $mcp; }, 10, 2 );                      // advertised MCP descriptor
-add_filter( 'agentimus_agent_skills', function ( $skills, $resources ) { return $skills; }, 10, 2 );       // Agent Skills index
-add_filter( 'agentimus_discoverable_ability', function ( $ok, $name, $ability ) { return $ok; }, 10, 3 );  // include/exclude a WP ability
-add_filter( 'agentimus_rest_namespaces', function ( $allowed ) { return $allowed; } );                    // REST namespaces to publish
+// Publish your REST namespace, and mark a custom post type agent-visible.
+add_filter( 'agentimus_rest_namespaces', function ( $allowed ) {
+    $allowed[] = 'acme/v1';
+    return $allowed;
+} );
 
-// Content, llms.txt & markdown
-add_filter( 'agentimus_post_types', function ( $types, $available ) { return $types; }, 10, 2 );           // which post types are agent-visible
-add_filter( 'agentimus_topic_exclude', function ( $slugs ) { return $slugs; } );                          // omit topic slugs from llms.txt
-add_filter( 'agentimus_markdown_source', function ( $html, $post ) { return $html; }, 10, 2 );            // rendered HTML for page-builder content
-
-// schema.org JSON-LD
-add_filter( 'agentimus_defer_schema', function ( $active ) { return $active; } );                         // stand JSON-LD down for an SEO plugin
-add_filter( 'agentimus_schema_for_post', function ( $node, $post ) { return $node; }, 10, 2 );            // replace a post's node (e.g. Product)
-add_filter( 'agentimus_schema_graph', function ( $graph ) { return $graph; } );                          // the whole @graph
-
-// security.txt & readiness
-add_filter( 'agentimus_security_txt', function ( $body ) { return $body; } );                            // the /.well-known/security.txt body
-add_filter( 'agentimus_readiness_checks', function ( $checks, $settings ) { return $checks; }, 10, 2 );  // add/adjust admin readiness checks
+add_filter( 'agentimus_post_types', function ( $types, $available ) {
+    $types[] = 'acme_product';
+    return $types;
+}, 10, 2 );
 ```
 
-**Internal** — advanced Guard / Classifier / Activity / Settings tuning. Not a third-party integration surface; shown for completeness.
+Same tier, same shape: `agentimus_documents`, `agentimus_schema_url`, `agentimus_well_known_routed` / `_nested` / `_specs`, `agentimus_signed_surfaces`, `agentimus_mcp`, `agentimus_mcp_card_server`, `agentimus_agent_skills`, `agentimus_post_type_source`, `agentimus_markdown_source`, `agentimus_topic_exclude`, `agentimus_llms_full_item_max_bytes` / `_avg_item_bytes`, `agentimus_yield_surface`, `agentimus_defer_schema`, `agentimus_schema_for_post`, `agentimus_schema_graph`, `agentimus_faq_pairs`, `agentimus_sitemap` / `_max_urls`, `agentimus_rest_discovery` / `_skip_namespaces`, `agentimus_discoverable_ability`, `agentimus_serve_security_txt` / `agentimus_security_txt` / `_expires_days`, `agentimus_readiness_checks`, `agentimus_signing_secret_key`.
+
+### Internal
+
+Advanced Guard / Classifier / Activity / Settings tuning — not a third-party integration surface.
 
 ```php
-// Guard, Classifier & activity log
-add_filter( 'agentimus_deny_request', function ( $deny, $ua ) { return $deny; }, 10, 2 );     // the Guard's final say on a 403
-add_filter( 'agentimus_block_allowlist', function ( $uas ) { return $uas; } );                // clients that must never be hard-blocked
-add_filter( 'agentimus_known_trainers', function ( $uas ) { return $uas; } );                 // AI-trainer UAs offered for robots.txt
-add_filter( 'agentimus_known_scanners', function ( $uas ) { return $uas; } );                 // scanner UAs offered as block suggestions
-add_filter( 'agentimus_spoof_signatures', function ( $sigs ) { return $sigs; } );            // platform markers that flag a spoofed scanner
-add_filter( 'agentimus_agent_map', function ( $map ) { return $map; } );                      // UA → friendly label for the activity log
-add_filter( 'agentimus_activity_retention_days', function ( $days ) { return $days; } );      // how long agent hits are kept
-add_filter( 'agentimus_heavy_min_hits', function ( $n ) { return $n; } );                     // "activity to review" thresholds:
-add_filter( 'agentimus_burst_min_hits', function ( $n ) { return $n; } );
-add_filter( 'agentimus_new_agent_seconds', function ( $secs ) { return $secs; } );
-add_filter( 'agentimus_threats_limit', function ( $n ) { return $n; } );
-
-// Settings
-add_filter( 'agentimus_default_settings', function ( $defaults ) { return $defaults; } );     // default settings array
-add_filter( 'agentimus_settings', function ( $all ) { return $all; } );                       // live settings array
+// The Guard's final say on whether to 403 a request.
+add_filter( 'agentimus_deny_request', function ( $deny, $ua ) {
+    return $deny;
+}, 10, 2 );
 ```
 
-> The complete, tier-annotated catalogue with every hook is in [`examples/all-hooks-reference.php`](examples/all-hooks-reference.php).
+Other internal knobs: `agentimus_block_allowlist`, `agentimus_engine_signatures`, `agentimus_generic_ua_tokens`, `agentimus_agent_map`, `agentimus_spoof_signatures`, `agentimus_known_agents` / `_scanners` / `_trainers`, `agentimus_ai_referral_sources`, `agentimus_activity_skip_self` / `_retention_days`, `agentimus_new_agent_seconds`, `agentimus_burst_min_hits`, `agentimus_heavy_min_hits`, `agentimus_threats_limit`, `agentimus_default_settings` / `agentimus_settings` / `agentimus_sanitize_settings`, `agentimus_settings_reset`.
+
+> Every hook — with its signature, a worked example, and its tier — is in [`examples/all-hooks-reference.php`](examples/all-hooks-reference.php).
 
 ## Development
 
