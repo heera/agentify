@@ -80,7 +80,13 @@ namespace {
 	$GLOBALS['_af_did_actions'] = array(); // Tests flip e.g. 'mcp_adapter_init' to exercise the server-present path.
 	$GLOBALS['_af_posts'] = array(); // id => post object fixtures for the Markdown privacy tests.
 	if ( ! function_exists( 'get_option' ) )            { function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['_af_options'] ) ? $GLOBALS['_af_options'][ $k ] : $d; } }
-	if ( ! function_exists( 'update_option' ) )         { function update_option( $k, $v ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
+	if ( ! function_exists( 'update_option' ) )         { function update_option( $k, $v, $autoload = null ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
+	// Rewrite-flush surface: is_admin() is toggleable per test, flush_rewrite_rules()
+	// just counts calls so a test can assert exactly when (and how often) we flush.
+	$GLOBALS['_af_is_admin']    = false;
+	$GLOBALS['_af_flush_count'] = 0;
+	if ( ! function_exists( 'is_admin' ) )              { function is_admin() { return ! empty( $GLOBALS['_af_is_admin'] ); } }
+	if ( ! function_exists( 'flush_rewrite_rules' ) )   { function flush_rewrite_rules( $hard = true ) { $GLOBALS['_af_flush_count'] = (int) ( $GLOBALS['_af_flush_count'] ?? 0 ) + 1; return true; } }
 	if ( ! function_exists( 'add_option' ) )            { function add_option( $k, $v ) { $GLOBALS['_af_options'][ $k ] = $v; return true; } }
 	if ( ! function_exists( 'get_post' ) )              { function get_post( $id = 0 ) { $id = (int) $id; if ( ! $id ) { $id = (int) ( $GLOBALS['_af_current_post_id'] ?? 0 ); } return isset( $GLOBALS['_af_posts'][ $id ] ) ? $GLOBALS['_af_posts'][ $id ] : null; } }
 	if ( ! function_exists( 'get_the_title' ) )         { function get_the_title( $p = null ) { $p = is_object( $p ) ? $p : get_post( $p ); return $p ? (string) $p->post_title : ''; } }
@@ -93,7 +99,7 @@ namespace {
 	if ( ! function_exists( 'get_the_modified_date' ) ) { function get_the_modified_date( $format = '', $p = null ) { return '2026-01-02T00:00:00+00:00'; } }
 	if ( ! function_exists( 'get_the_category' ) )      { function get_the_category( $id = false ) { return isset( $GLOBALS['_af_categories'] ) ? (array) $GLOBALS['_af_categories'] : array(); } }
 	if ( ! function_exists( 'get_category_link' ) )     { function get_category_link( $cat ) { return 'https://example.com/cat/'; } }
-	function _af_reset_options() { $GLOBALS['_af_options'] = array(); $GLOBALS['_af_did_actions'] = array(); $GLOBALS['_af_posts'] = array(); unset( $GLOBALS['_af_available_post_types'], $GLOBALS['_af_current_post_id'], $GLOBALS['_af_is_singular'], $GLOBALS['_af_is_front_page'], $GLOBALS['_af_categories'] ); }
+	function _af_reset_options() { $GLOBALS['_af_options'] = array(); $GLOBALS['_af_did_actions'] = array(); $GLOBALS['_af_posts'] = array(); $GLOBALS['_af_is_admin'] = false; $GLOBALS['_af_flush_count'] = 0; unset( $GLOBALS['_af_available_post_types'], $GLOBALS['_af_current_post_id'], $GLOBALS['_af_is_singular'], $GLOBALS['_af_is_front_page'], $GLOBALS['_af_categories'] ); }
 	// Always-miss transient stubs so cached endpoint bodies (e.g. security.txt)
 	// recompute deterministically in tests.
 	if ( ! function_exists( 'get_transient' ) )         { function get_transient( $k ) { return false; } }
