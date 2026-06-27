@@ -108,11 +108,18 @@ full copy-paste reference, and the [**WP_Discovery Protocol**](https://github.co
 
 ## Hooks & filters
 
-The dev-facing subset below; the plugin fires ~55 in all and every one is optional. They fall into three tiers: **Stable** — the `wpdiscovery_register` registration API plus `agentimus_entity_types` and `agentimus_cache_flushed`, frozen at WP_Discovery spec 1.0; **Extension** — the output-shaping filters listed here, supported but with signatures that may evolve between releases; and **Internal** — advanced Guard/Classifier/Activity/Settings tuning, not a third-party integration surface. The complete, tier-annotated catalogue with every signature is in [`examples/all-hooks-reference.php`](examples/all-hooks-reference.php).
+Every hook is optional and falls into one of three tiers. Each is documented below; copy-paste examples with full signatures live in [`examples/all-hooks-reference.php`](examples/all-hooks-reference.php).
 
 ### Stable
 
 Public and frozen at WP_Discovery spec 1.0 — safe to build on.
+
+| Hook | Purpose |
+| --- | --- |
+| `wpdiscovery_register` *(action)* | Register your resources and serve your own `/.well-known` documents. See [`integrate-your-plugin.php`](examples/integrate-your-plugin.php) for the full schema. |
+| `agentimus_entity_types` | Add selectable schema.org entity types to Settings → Identity. |
+| `agentimus_cache_flushed` *(action)* | Runs after Agentimus regenerates its documents — purge your CDN / page cache. |
+| `agentimus_booted` *(action)* | Runs after the plugin boots — a companion or Pro add-on registers its features here. |
 
 ```php
 // Add selectable schema.org entity types to Settings → Identity.
@@ -120,18 +127,46 @@ add_filter( 'agentimus_entity_types', function ( $types ) {
     $types[] = 'Restaurant';
     return $types;
 } );
-
-// Run after Agentimus regenerates its documents — purge your CDN / page cache.
-add_action( 'agentimus_cache_flushed', function () {
-    my_cdn_purge( array( '/llms.txt', '/llms-full.txt', '/.well-known/discovery.json' ) );
-} );
 ```
-
-Also stable: the `wpdiscovery_register` registration API (above) and the `agentimus_booted` lifecycle action.
 
 ### Extension
 
 Supported output-shaping filters; signatures may evolve between releases.
+
+| Hook | Purpose |
+| --- | --- |
+| `agentimus_envelope` | The whole assembled `discovery.json` — add `x-<vendor>` extension keys. |
+| `agentimus_documents` | Add a standard document Agentimus can't auto-detect to the `documents` map. |
+| `agentimus_schema_url` | The `$schema` URL of the discovery document; return `''` to omit it. |
+| `agentimus_well_known_routed` | Route a flat `/.well-known/<name>` you serve so it resolves on every host. |
+| `agentimus_well_known_nested` | Route an exact-match nested `/.well-known/<dir>/<file>`. |
+| `agentimus_well_known_specs` | Label a `/.well-known` name with the standard that governs it. |
+| `agentimus_signed_surfaces` | Which discovery documents your companion signer signs. |
+| `agentimus_mcp` | The advertised MCP descriptor at `/.well-known/mcp.json`. |
+| `agentimus_mcp_card_server` | Pin which server the MCP server card describes. |
+| `agentimus_agent_skills` | Entries in the Agent Skills index. |
+| `agentimus_post_types` | Which post types are agent-visible (each gets an llms.txt section). |
+| `agentimus_post_type_source` | Attribute a post type's llms.txt section to your plugin. |
+| `agentimus_markdown_source` | Supply rendered HTML for page-builder content. |
+| `agentimus_topic_exclude` | Topic/category slugs to omit from the llms.txt Topics list. |
+| `agentimus_llms_full_item_max_bytes` | Per-item byte cap for the llms-full.txt edition. |
+| `agentimus_llms_full_avg_item_bytes` | Average item size used to estimate llms-full.txt in the admin. |
+| `agentimus_yield_surface` | Cede a surface (`llms_txt`, `robots`, …) to your own producer. |
+| `agentimus_defer_schema` | Whether to emit the front-end JSON-LD (stand down for an SEO plugin). |
+| `agentimus_schema_for_post` | Replace a post's JSON-LD node (e.g. a `Product`). |
+| `agentimus_schema_graph` | Last-chance edit of the entire JSON-LD `@graph`. |
+| `agentimus_faq_pairs` | Contribute extra FAQPage question/answer pairs. |
+| `agentimus_sitemap` | Override the detected sitemap URL. |
+| `agentimus_sitemap_max_urls` | Cap the number of URLs in the generated sitemap. |
+| `agentimus_rest_discovery` | Master switch for REST namespace auto-discovery. |
+| `agentimus_rest_namespaces` | REST namespaces to publish in the discovery document. |
+| `agentimus_rest_skip_namespaces` | REST namespaces to exclude from discovery. |
+| `agentimus_discoverable_ability` | Include or exclude a single WP ability. |
+| `agentimus_serve_security_txt` | Whether Agentimus generates a `security.txt`. |
+| `agentimus_security_txt` | Edit the final `security.txt` body. |
+| `agentimus_security_txt_expires_days` | The `security.txt` `Expires` window, in days. |
+| `agentimus_readiness_checks` | Add or adjust the admin Discovery Hub readiness checks. |
+| `agentimus_signing_secret_key` | Supply the Ed25519 signing key from a constant or vault. |
 
 ```php
 // Add a vendor extension to the discovery document (the x- namespace is yours).
@@ -139,24 +174,34 @@ add_filter( 'agentimus_envelope', function ( $envelope, $registry ) {
     $envelope['x-acme'] = array( 'portal' => 'https://acme.example' );
     return $envelope;
 }, 10, 2 );
-
-// Publish your REST namespace, and mark a custom post type agent-visible.
-add_filter( 'agentimus_rest_namespaces', function ( $allowed ) {
-    $allowed[] = 'acme/v1';
-    return $allowed;
-} );
-
-add_filter( 'agentimus_post_types', function ( $types, $available ) {
-    $types[] = 'acme_product';
-    return $types;
-}, 10, 2 );
 ```
-
-Same tier, same shape: `agentimus_documents`, `agentimus_schema_url`, `agentimus_well_known_routed` / `_nested` / `_specs`, `agentimus_signed_surfaces`, `agentimus_mcp`, `agentimus_mcp_card_server`, `agentimus_agent_skills`, `agentimus_post_type_source`, `agentimus_markdown_source`, `agentimus_topic_exclude`, `agentimus_llms_full_item_max_bytes` / `_avg_item_bytes`, `agentimus_yield_surface`, `agentimus_defer_schema`, `agentimus_schema_for_post`, `agentimus_schema_graph`, `agentimus_faq_pairs`, `agentimus_sitemap` / `_max_urls`, `agentimus_rest_discovery` / `_skip_namespaces`, `agentimus_discoverable_ability`, `agentimus_serve_security_txt` / `agentimus_security_txt` / `_expires_days`, `agentimus_readiness_checks`, `agentimus_signing_secret_key`.
 
 ### Internal
 
-Advanced Guard / Classifier / Activity / Settings tuning — not a third-party integration surface.
+Advanced site-owner tuning — not a third-party integration surface.
+
+| Hook | Purpose |
+| --- | --- |
+| `agentimus_deny_request` | The Guard's final say on whether to 403 a request. |
+| `agentimus_block_allowlist` | Clients that must never be hard-blocked (search engines + your list). |
+| `agentimus_engine_signatures` | Structured signatures that match real crawlers at a token boundary. |
+| `agentimus_generic_ua_tokens` | Generic user-agent tokens treated as low-signal. |
+| `agentimus_agent_map` | User-agent → friendly label for the activity log. |
+| `agentimus_spoof_signatures` | Platform markers that flag a spoofed/legacy-device scanner. |
+| `agentimus_known_agents` | Known-agent catalog (user-agent → label). |
+| `agentimus_known_scanners` | Scanner user-agents offered as one-click block suggestions. |
+| `agentimus_known_trainers` | AI-trainer user-agents offered for robots.txt blocking. |
+| `agentimus_ai_referral_sources` | Referrer host → friendly name for "Traffic from AI". |
+| `agentimus_activity_skip_self` | Whether to skip recording hits from logged-in admins. |
+| `agentimus_activity_retention_days` | How long agent hits are retained. |
+| `agentimus_new_agent_seconds` | The "new agent" window for the activity-to-review panel. |
+| `agentimus_burst_min_hits` | Minimum hits to flag a burst. |
+| `agentimus_heavy_min_hits` | Minimum hits to flag heavy usage. |
+| `agentimus_threats_limit` | Maximum rows in the "activity to review" panel. |
+| `agentimus_default_settings` | The default settings array. |
+| `agentimus_settings` | The live, merged settings array at read time. |
+| `agentimus_sanitize_settings` | Validate/coerce companion-added fields on save. |
+| `agentimus_settings_reset` *(action)* | Runs when the owner resets settings. |
 
 ```php
 // The Guard's final say on whether to 403 a request.
@@ -164,10 +209,6 @@ add_filter( 'agentimus_deny_request', function ( $deny, $ua ) {
     return $deny;
 }, 10, 2 );
 ```
-
-Other internal knobs: `agentimus_block_allowlist`, `agentimus_engine_signatures`, `agentimus_generic_ua_tokens`, `agentimus_agent_map`, `agentimus_spoof_signatures`, `agentimus_known_agents` / `_scanners` / `_trainers`, `agentimus_ai_referral_sources`, `agentimus_activity_skip_self` / `_retention_days`, `agentimus_new_agent_seconds`, `agentimus_burst_min_hits`, `agentimus_heavy_min_hits`, `agentimus_threats_limit`, `agentimus_default_settings` / `agentimus_settings` / `agentimus_sanitize_settings`, `agentimus_settings_reset`.
-
-> Every hook — with its signature, a worked example, and its tier — is in [`examples/all-hooks-reference.php`](examples/all-hooks-reference.php).
 
 ## Development
 
