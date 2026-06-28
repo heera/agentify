@@ -4,7 +4,7 @@ Tags: ai-agents, ai-crawlers, agent-readiness, llms-txt, ai-seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -160,6 +160,13 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 
 == Changelog ==
 
+= 1.7.0 =
+* Dashboard: "Traffic from AI" is now a single, clearer card with a new by-day breakdown — expand a day to see which assistant (ChatGPT, Perplexity, …) sent a reader to which page. Counts only; no IPs or exact times are stored.
+* Dashboard: the Readiness summary in the sidebar is now a clean, clickable overview — the score and each rung jump straight to the relevant section of the full report.
+* Admin: replaced the browser's native confirmation pop-ups with a styled in-app dialog.
+* Fixed: the Readiness screen could go blank if another plugin registered a malformed readiness check; it now recovers gracefully and shows the offending check.
+* Hardened: Agentimus is now resilient to malformed data from other plugins across every extension point (settings, discovery envelope, schema, readiness). A buggy third-party plugin can no longer blank the admin or corrupt a published discovery/schema document — backed by a new robustness test suite.
+
 = 1.6.0 =
 * Companion plugins now "just work": when another plugin registers a discovery resource or serves its own /.well-known document, Agentimus refreshes its rewrite rules automatically — no re-activation or manual permalink flush. The refresh is keyed to the actual set of routed documents, never runs on front-end requests, and is rate-limited, so it stays off the hot path and won't slow your site.
 * New developer reference: examples/all-hooks-reference.php catalogues every extension point Agentimus exposes, grouped by stability — Stable (the registration API to build on), Extension (output-shaping filters) and Internal (advanced tuning) — with a matching "Which hooks can my plugin use?" entry in the FAQ, so plugin authors can see at a glance what's safe to depend on.
@@ -223,6 +230,9 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Admin Discovery Hub for inspecting what agents can see, with per-item publish/suppress control.
 
 == Upgrade Notice ==
+
+= 1.7.0 =
+Clearer "Traffic from AI" card with a per-day breakdown, a tidier clickable Readiness summary, styled confirm dialogs, and major hardening so a buggy third-party plugin can never blank the admin or corrupt your published discovery/schema documents.
 
 = 1.6.0 =
 Companion plugins that register discovery resources or serve their own /.well-known documents now self-heal Agentimus's rewrite rules — no re-activation or manual flush needed, and front-end-safe + rate-limited so there's no performance cost. Adds a complete, tier-grouped developer hook reference.
