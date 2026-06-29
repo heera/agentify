@@ -103,6 +103,45 @@ final class Classifier {
 	}
 
 	/**
+	 * The generic, non-identifying buckets classify() falls back to when a UA is
+	 * not a specific named crawler. Anything NOT in this set is a recognised agent.
+	 *
+	 * @return string[]
+	 */
+	private static function generic_labels() {
+		return array(
+			'No user-agent',
+			'Likely spoof/scanner',
+			'Other bot',
+			'Script/tool',
+			'Browser',
+			'Unidentified',
+		);
+	}
+
+	/**
+	 * Whether a User-Agent resolves to a SPECIFIC, recognised agent — a named
+	 * crawler from the map or the catalog (GPTBot, ClaudeBot, Googlebot…) rather
+	 * than a generic browser/script/unknown bucket.
+	 *
+	 * Deliberately SPOOF-AWARE: a UA that trips the legacy-device spoof test is
+	 * never "recognised", even when it ALSO carries a known-bot token. classify()
+	 * matches the agent map BEFORE the spoof test, so a scanner could otherwise
+	 * paste "GPTBot" into a Symbian/Java-ME string and inherit the friendly name;
+	 * the explicit is_spoof() veto here is what stops a spoofed client earning the
+	 * recognised fast-pass that callers (e.g. the logger's flood guard) grant.
+	 *
+	 * @param string $ua Raw User-Agent.
+	 * @return bool
+	 */
+	public static function is_recognised_agent( $ua ) {
+		if ( self::is_spoof( $ua ) ) {
+			return false;
+		}
+		return ! in_array( self::classify( $ua ), self::generic_labels(), true );
+	}
+
+	/**
 	 * Lowercase regex fragments that mark a User-Agent as a near-certain spoof: a
 	 * client claiming a long-obsolete mobile/embedded PLATFORM that no longer exists
 	 * on the live web, let alone fetching a JSON/text machine endpoint. Scanners reach

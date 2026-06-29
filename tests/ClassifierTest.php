@@ -93,4 +93,49 @@ final class ClassifierTest extends TestCase {
 			'nokia_8110_kaios'   => array( 'Mozilla/5.0 (Mobile; Nokia 8110 4G; rv:48.0) Gecko/48.0 Firefox/48.0 KAIOS/2.5' ),
 		);
 	}
+
+	/* -- is_recognised_agent() — the logger's spoof-aware fast-pass gate -- */
+
+	/** A genuinely-recognised crawler is recognised → it earns the log fast-pass. */
+	public function test_recognised_named_agent_is_recognised() {
+		$this->assertTrue( Classifier::is_recognised_agent( self::GPTBOT ) );
+		$this->assertTrue( Classifier::is_recognised_agent( 'Mozilla/5.0 (compatible; ClaudeBot/1.0; +https://anthropic.com)' ) );
+		// Catalogued-but-unlabelled crawlers count too (named from the catalog).
+		$this->assertTrue( Classifier::is_recognised_agent( 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ShapBot/0.1.0' ) );
+	}
+
+	/**
+	 * Generic/unknown clients are NOT recognised → they are throttle-eligible.
+	 *
+	 * @dataProvider unrecognised_uas
+	 */
+	public function test_generic_clients_are_not_recognised( $ua ) {
+		$this->assertFalse( Classifier::is_recognised_agent( $ua ), $ua );
+	}
+
+	public function unrecognised_uas() {
+		return array(
+			'browser'        => array( self::CHROME ),
+			'no_ua'          => array( '' ),
+			'script_curl'    => array( 'curl/8.4.0' ),
+			'other_bot'      => array( 'WhateverBot/1.0 (+http://example.com)' ),
+			'unidentified'   => array( 'SomeRandomFetcher/2.0' ),
+			'flood_evilbot'  => array( 'EvilBot-7/4213 (flood test)' ),
+			'legacy_spoof'   => array( self::NOKIA ),
+		);
+	}
+
+	/**
+	 * The security-critical case: a UA that pastes a known bot's NAME but also
+	 * trips the legacy-device spoof test must NOT be recognised — otherwise a
+	 * scanner could spoof its way to the fast-pass. is_spoof() vetoes the name.
+	 */
+	public function test_spoofed_known_bot_name_does_not_earn_the_fast_pass() {
+		$spoofed_gptbot = 'GPTBot/1.1 SymbianOS/8.0 Series60/2.6 Profile/MIDP-2.0';
+		// classify() still NAMES it (the map matches before the spoof tier)…
+		$this->assertSame( 'GPTBot (OpenAI)', Classifier::classify( $spoofed_gptbot ) );
+		// …but recognition is spoof-aware, so it is denied the fast-pass.
+		$this->assertTrue( Classifier::is_spoof( $spoofed_gptbot ) );
+		$this->assertFalse( Classifier::is_recognised_agent( $spoofed_gptbot ) );
+	}
 }
