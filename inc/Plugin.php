@@ -80,6 +80,7 @@ final class Plugin {
 		( new Discovery\Module( $this->settings ) )->register();
 		( new Activity\Module( $this->settings ) )->register();
 		( new WebMcp( $this->settings ) )->register();
+		( new Exposure( $this->settings ) )->register();
 
 		// Self-heal the /.well-known rewrite rules: flush ONCE whenever the routed-name
 		// set changes — an Agentimus update that adds a built-in name (e.g. tdmrep.json)

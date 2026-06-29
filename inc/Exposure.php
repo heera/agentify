@@ -1,0 +1,231 @@
+<?php
+/**
+ * Exposure — the defensive counterpart to the Discovery layer: opt-in controls
+ * that reduce what an ANONYMOUS visitor (crawler, bot, scanner) can read about
+ * the site. Agentimus curates the machine surface, so closing the noisy stock
+ * leaks that undercut that curation belongs here.
+ *
+ * Every control is OFF by default and only registers its hooks when the owner
+ * turns it on, so a fresh install changes nothing. Each is scoped to logged-out
+ * requests — a signed-in admin and the block editor keep full access. The actual
+ * decisions live in pure static helpers (unit-tested); the registered callbacks
+ * are thin adapters that feed them the live WordPress state.
+ *
+ * Deliberately NOT here: login lockout, 2FA, malware scanning, firewalls — that
+ * is a security plugin, not a discovery layer.
+ *
+ * @package Agentimus
+ */
+
+namespace Agentimus;
+
+defined( 'ABSPATH' ) || exit;
+
+final class Exposure {
+
+	/** @var Settings */
+	private $settings;
+
+	/**
+	 * @param Settings $settings Settings store.
+	 */
+	public function __construct( Settings $settings ) {
+		$this->settings = $settings;
+	}
+
+	/**
+	 * Register only the hooks whose toggle is on. Read once here (at boot); a
+	 * settings change applies on the next request, like every other setting.
+	 */
+	public function register() {
+		if ( $this->settings->enabled( 'hide_user_enumeration' ) ) {
+			add_filter( 'rest_endpoints', array( $this, 'filter_rest_endpoints' ) );
+			add_filter( 'wp_sitemaps_add_provider', array( __CLASS__, 'drop_users_sitemap' ), 10, 2 );
+			add_filter( 'oembed_response_data', array( __CLASS__, 'strip_oembed_author' ) );
+			add_action( 'template_redirect', array( $this, 'block_enumeration' ), 0 );
+		}
+
+		if ( $this->settings->enabled( 'hide_wp_version' ) ) {
+			remove_action( 'wp_head', 'wp_generator' );
+			add_filter( 'the_generator', '__return_empty_string' );
+			add_filter( 'style_loader_src', array( $this, 'filter_core_version' ) );
+			add_filter( 'script_loader_src', array( $this, 'filter_core_version' ) );
+		}
+
+		if ( $this->settings->enabled( 'disable_xmlrpc' ) ) {
+			add_filter( 'xmlrpc_enabled', '__return_false' );
+			add_filter( 'xmlrpc_methods', array( __CLASS__, 'no_xmlrpc_methods' ) );
+			add_filter( 'wp_headers', array( __CLASS__, 'drop_pingback_header' ) );
+			remove_action( 'wp_head', 'rsd_link' );
+		}
+	}
+
+	/* -- Registered adapters (thin: live WP state → pure helper) ---------- */
+
+	/**
+	 * rest_endpoints: drop the core users routes for anonymous callers.
+	 *
+	 * @param array $endpoints Route map.
+	 * @return array
+	 */
+	public function filter_rest_endpoints( $endpoints ) {
+		return self::strip_users_from_endpoints( (array) $endpoints, is_user_logged_in() );
+	}
+
+	/**
+	 * style/script_loader_src: strip the core ?ver= so the WP version isn't
+	 * advertised on every asset. Plugin/theme asset versions (their own cache
+	 * busters) are left intact — only the value matching core is removed.
+	 *
+	 * @param string $src Asset URL.
+	 * @return string
+	 */
+	public function filter_core_version( $src ) {
+		$ver = isset( $GLOBALS['wp_version'] ) ? (string) $GLOBALS['wp_version'] : '';
+		return self::strip_core_version( $src, $ver );
+	}
+
+	/**
+	 * template_redirect: 404 the two anonymous author-enumeration URLs, at priority
+	 * 0 so it runs before redirect_canonical / the sitemap renderer:
+	 *   - `?author=<n>` — before WP canonical-redirects it to /author/<slug>/ and
+	 *     leaks the slug.
+	 *   - `/wp-sitemap-users-*.xml` — with the users provider already removed the URL
+	 *     no longer maps to a sitemap (so it would otherwise fall through to a page);
+	 *     return a clean 404 instead.
+	 */
+	public function block_enumeration() {
+		if ( is_user_logged_in() ) {
+			return;
+		}
+		$author = isset( $_GET['author'] ) ? wp_unslash( $_GET['author'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only public request gate, no state change.
+		if ( self::is_author_enumeration( $author ) || 'users' === get_query_var( 'sitemap' ) ) {
+			$this->send_404();
+		}
+	}
+
+	/**
+	 * Force the current request to a 404.
+	 */
+	private function send_404() {
+		global $wp_query;
+		if ( is_object( $wp_query ) && method_exists( $wp_query, 'set_404' ) ) {
+			$wp_query->set_404();
+		}
+		status_header( 404 );
+		nocache_headers();
+	}
+
+	/* -- Pure helpers (unit-tested; no WordPress dependency) -------------- */
+
+	/**
+	 * Remove the core users routes for an anonymous request. A signed-in user keeps
+	 * them, so the block editor's author picker and legit authenticated REST clients
+	 * are untouched.
+	 *
+	 * @param array $endpoints Route map.
+	 * @param bool  $logged_in Whether the current request is authenticated.
+	 * @return array
+	 */
+	public static function strip_users_from_endpoints( array $endpoints, $logged_in ) {
+		if ( $logged_in ) {
+			return $endpoints;
+		}
+		unset( $endpoints['/wp/v2/users'], $endpoints['/wp/v2/users/(?P<id>[\d]+)'] );
+		return $endpoints;
+	}
+
+	/**
+	 * wp_sitemaps_add_provider: drop the `users` provider so the core sitemap stops
+	 * enumerating author archive URLs (and its entry leaves the sitemap index).
+	 *
+	 * @param mixed  $provider The provider instance (or already-false).
+	 * @param string $name     Provider name.
+	 * @return mixed False to remove the users provider; the provider otherwise.
+	 */
+	public static function drop_users_sitemap( $provider, $name ) {
+		return ( 'users' === $name ) ? false : $provider;
+	}
+
+	/**
+	 * oembed_response_data: blank the author fields so an oEmbed fetch can't reveal
+	 * the author name/URL.
+	 *
+	 * @param mixed $data Response data (array).
+	 * @return mixed
+	 */
+	public static function strip_oembed_author( $data ) {
+		if ( is_array( $data ) ) {
+			unset( $data['author_name'], $data['author_url'] );
+		}
+		return $data;
+	}
+
+	/**
+	 * xmlrpc_methods: remove every method — including pingback.ping,
+	 * system.multicall and wp.getUsersBlogs — leaving xmlrpc.php inert without
+	 * needing server config.
+	 *
+	 * @param mixed $methods Method map (ignored).
+	 * @return array Always empty.
+	 */
+	public static function no_xmlrpc_methods( $methods ) {
+		return array();
+	}
+
+	/**
+	 * wp_headers: drop the X-Pingback response header so the pingback endpoint isn't
+	 * advertised once XML-RPC is disabled.
+	 *
+	 * @param mixed $headers Header map.
+	 * @return mixed
+	 */
+	public static function drop_pingback_header( $headers ) {
+		if ( is_array( $headers ) ) {
+			unset( $headers['X-Pingback'] );
+		}
+		return $headers;
+	}
+
+	/**
+	 * Whether a request's `author` query value is an enumeration probe: a bare
+	 * numeric id (the `?author=1` → /author/<slug>/ trick). A non-numeric author
+	 * query (a real author archive by slug) is left alone.
+	 *
+	 * @param string $author The raw author query value.
+	 * @return bool
+	 */
+	public static function is_author_enumeration( $author ) {
+		$author = (string) $author;
+		return '' !== $author && ctype_digit( $author );
+	}
+
+	/**
+	 * Strip a `ver=<core version>` query arg from an asset URL, preserving every
+	 * other query arg and any non-core version. Returns the URL unchanged when the
+	 * core version isn't present. Uses only native PHP so the rule is testable.
+	 *
+	 * @param string $src        Asset URL.
+	 * @param string $wp_version The running WordPress core version.
+	 * @return string
+	 */
+	public static function strip_core_version( $src, $wp_version ) {
+		$src        = (string) $src;
+		$wp_version = (string) $wp_version;
+		if ( '' === $wp_version || false === strpos( $src, 'ver=' . $wp_version ) ) {
+			return $src;
+		}
+		$q = strpos( $src, '?' );
+		if ( false === $q ) {
+			return $src;
+		}
+		$base = substr( $src, 0, $q );
+		parse_str( substr( $src, $q + 1 ), $args );
+		if ( ! isset( $args['ver'] ) || (string) $args['ver'] !== $wp_version ) {
+			return $src; // A different ver (plugin/theme cache-buster) — leave it.
+		}
+		unset( $args['ver'] );
+		$qs = http_build_query( $args );
+		return '' === $qs ? $base : $base . '?' . $qs;
+	}
+}

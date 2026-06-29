@@ -83,6 +83,13 @@ final class Settings {
 			'block_spoofed'    => true,  // When blocking is on, also deny spoofed/legacy-device UAs (the "Likely spoof/scanner" class). No effect while block_agents is false.
 			'blocked_agents'   => array(), // Owner's custom user-agent substrings to deny (case-insensitive). Empty = none.
 			'allowed_agents'   => array(), // Owner's trust-list (via the activity panel's "Allow"): never blocked, never flagged for review. Empty = none.
+			// Exposure controls — reduce what an ANONYMOUS visitor (crawler / bot /
+			// scanner) can read about the site. All opt-in / OFF by default: each one
+			// changes a stock WordPress behaviour, so it ships only when the owner asks,
+			// and is scoped to logged-out requests (admins/the editor are unaffected).
+			'hide_user_enumeration' => false, // Block anonymous author/user enumeration: wp/v2/users, ?author=N, the core users-sitemap, and the oEmbed author fields.
+			'hide_wp_version'       => false, // Remove the WordPress version fingerprint: the <meta generator> tag, the feed generator, and the core ?ver= on core assets.
+			'disable_xmlrpc'        => false, // Disable legacy XML-RPC (xmlrpc.php) — the pingback / system.multicall brute-force-amplification + DDoS surface. Modern clients use the REST API.
 		);
 
 		/**
@@ -370,7 +377,7 @@ final class Settings {
 		$defaults = $this->defaults();
 		$clean    = array();
 
-		foreach ( array( 'enable_llms_txt', 'enable_llms_full', 'enable_markdown', 'enable_robots', 'enable_schema', 'enable_activity', 'enable_sitemap', 'enable_security_txt', 'enable_signing' ) as $flag ) {
+		foreach ( array( 'enable_llms_txt', 'enable_llms_full', 'enable_markdown', 'enable_robots', 'enable_schema', 'enable_activity', 'enable_sitemap', 'enable_security_txt', 'enable_signing', 'hide_user_enumeration', 'hide_wp_version', 'disable_xmlrpc' ) as $flag ) {
 			$clean[ $flag ] = ! empty( $input[ $flag ] );
 		}
 

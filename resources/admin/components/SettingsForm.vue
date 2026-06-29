@@ -57,6 +57,7 @@ export default {
         { key: 'identity', label: 'Identity', hint: 'Who owns this site' },
         { key: 'discovery', label: 'Discovery', hint: 'Files & data AI can read' },
         { key: 'access', label: 'AI access', hint: 'What bots may do — and who to block' },
+        { key: 'exposure', label: 'Exposure', hint: 'Limit what your site reveals to bots & scanners' },
         { key: 'advanced', label: 'Advanced', hint: 'Trust, developer & maintenance' },
       ];
     },
@@ -145,6 +146,27 @@ export default {
         { key: 'enable_activity', label: 'Visit log', hint: 'Records which AI assistants fetch your AI files, and counts visitors AI sends you. Local-only, no IP addresses.' },
         { key: 'enable_sitemap', label: 'Sitemap (backup)', hint: 'Adds a sitemap only when WordPress core and your SEO plugin don’t already provide one — never duplicates.' },
         { key: 'enable_signing', label: 'Verified responses', hint: 'Digitally signs your AI files so assistants can confirm they really came from your site and weren’t tampered with on the way. On by default; no setup needed.' },
+      ];
+    },
+    exposureControls() {
+      // Defensive toggles — all OFF by default. Plain label; the real
+      // mechanism/file stays in the hint so it's discoverable but never required.
+      return [
+        {
+          key: 'hide_user_enumeration',
+          label: 'Hide your users & authors',
+          hint: 'Stops anonymous visitors from listing your usernames — closes the author list at /wp-json/wp/v2/users, the ?author=1 trick, the users sitemap and the oEmbed author. Your admin and the editor are unaffected.',
+        },
+        {
+          key: 'hide_wp_version',
+          label: 'Hide your WordPress version',
+          hint: 'Removes the WordPress version number from your pages and feed (the “generator” tag) and from core file links, so it’s not handed to vulnerability scanners.',
+        },
+        {
+          key: 'disable_xmlrpc',
+          label: 'Disable XML-RPC',
+          hint: 'Turns off the legacy xmlrpc.php endpoint — a common target for password-guessing and pingback-spam attacks. Safe for most sites; leave on only if an older app or Jetpack feature needs it.',
+        },
       ];
     },
     // A heads-up under the posts-per-type input: the server's COUNT-only estimate
@@ -1028,6 +1050,29 @@ export default {
             again (the same treatment as Googlebot). Remove one to start flagging it again.
           </small>
         </div>
+      </section>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- EXPOSURE — limit what anonymous bots & scanners can read     -->
+    <!-- ============================================================ -->
+    <div v-show="group === 'exposure'" class="ar-group" data-group="exposure">
+      <section id="ar-sec-exposure" class="ar-card">
+        <h2 class="ar-card__title">Exposure</h2>
+        <p class="ar-card__lead">
+          The opposite of Discovery: stop your site quietly over-sharing with crawlers, bots and
+          scanners. Every control here is off by default and affects only anonymous visitors — you
+          and your editors are never restricted.
+        </p>
+
+        <label v-for="c in exposureControls" :id="'ar-exp-' + c.key" :key="c.key" class="ar-toggle">
+          <input v-model="settings[c.key]" type="checkbox" />
+          <span class="ar-toggle__track" aria-hidden="true"></span>
+          <span class="ar-toggle__text">
+            <strong>{{ c.label }}</strong>
+            <small>{{ c.hint }}</small>
+          </span>
+        </label>
       </section>
     </div>
 
