@@ -23,6 +23,10 @@ It makes no outbound requests, collects no analytics, and logs no IP addresses. 
 * **robots.txt content-signals + AI-training blocklist** — declare your content-usage policy and block named model-training crawlers (GPTBot, CCBot, ClaudeBot, Google-Extended, Bytespider, …) by name, while leaving read/cite bots free.
 * **Block scanners & scrapers (opt-in hard block)** — robots rules are a polite request; this enforces them. Turn it on to return 403 to the user-agents on your denylist, and optionally auto-deny agents that disguise themselves as ancient handsets (a classic scanner trick). Protected search engines and anything on your allow-list are never blocked, and `/.well-known/acme-challenge/` (SSL renewal) always stays reachable.
 
+**Reduce exposure — what your site reveals to bots**
+
+* **Exposure controls (opt-in, all OFF by default)** — a panel of switches that quietly close the things stock WordPress reveals to anonymous crawlers and scanners: stop username enumeration (the `?author=1` and REST `/wp/v2/users` leak, plus the users sitemap and oEmbed author), 404 author-archive pages, hide the WordPress version from the generator tag and asset URLs, drop the rarely-used auto-generated `<head>` discovery links, and neutralise XML-RPC. Nothing changes until you turn a switch on, and signed-in admins and the block editor are never affected. It's exposure hygiene, not a firewall — Agentimus stays a discovery layer, not a security suite.
+
 **Visibility — who is reading you**
 
 * **Agent activity log** — a dashboard of which AI crawlers and agents actually fetch your content and endpoints (GPTBot, Claude, Perplexity, Googlebot, …), recorded first-party in your own database, with no IP logging.
@@ -185,6 +189,9 @@ The example URLs in `examples/integrate-your-plugin.php` (on `example.com`) are 
 There is no minified-only code. The admin interface is built from Vue 3 source in `resources/` with Vite; the source and `vite.config.js` ship in this package and also live in the public repository at https://github.com/heera/agentimus . Run `npm install && npm run build` to regenerate `assets/admin/` from source.
 
 == Changelog ==
+
+= Unreleased =
+* New "Exposure" settings tab — opt-in, off-by-default controls that limit what an anonymous visitor can read about your site, the defensive counterpart to the Discovery tab. Hide username enumeration (the REST `/wp/v2/users` and `?author=N` leak, the users sitemap, and oEmbed author fields), 404 author-archive pages, hide the WordPress version (generator tag + core asset `?ver=`), drop the rarely-used auto-generated `<head>` discovery links (shortlink, RSD, Windows Live Writer, oEmbed), and disable XML-RPC (renders its methods inert and drops the X-Pingback header). Every control ships OFF, is scoped to logged-out requests so signed-in admins and the block editor keep full access, and a fresh install changes nothing until you opt in.
 
 = 1.9.0 =
 * WebMCP bridge (experimental, opt-in, OFF by default): registers your site's read-only tools — starting with site search — with AI agents working inside a browser, via the emerging WebMCP standard (navigator.modelContext). Adds a tiny front-end script only when you enable it, and it stays completely inert in browsers without the API, so a default install still ships no front-end JavaScript. Companion plugins can add their own read-only tools with the `agentimus_webmcp_tools` filter.
