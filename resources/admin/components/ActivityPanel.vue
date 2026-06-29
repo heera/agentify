@@ -8,6 +8,9 @@ export default {
     summary: { type: Object, default: null },
     loaded: { type: Boolean, default: false },
     refreshing: { type: Boolean, default: false },
+    // Whether auto-refresh is armed (controlled from the bell menu). Drives the
+    // passive "Auto-updating" marker so this card explains its own live numbers.
+    live: { type: Boolean, default: false },
     api: { type: Object, default: null },
   },
   emits: ['refresh', 'clear', 'navigate'],
@@ -374,6 +377,9 @@ export default {
             </p>
           </div>
           <div class="ar-act-controls">
+            <span v-if="live" class="ar-act-live" title="Auto-refresh is on — these stats update on their own. Refresh forces an update now.">
+              <span class="ar-act-live__dot" aria-hidden="true"></span>Auto-updating
+            </span>
             <button type="button" class="ar-btn ar-btn--ghost" :disabled="refreshing" @click="$emit('refresh')">
               {{ refreshing ? 'Refreshing…' : 'Refresh' }}
             </button>

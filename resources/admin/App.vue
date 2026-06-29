@@ -852,6 +852,7 @@ export default {
           :summary="dashSummary"
           :loaded="activityLoaded"
           :refreshing="refreshingActivity"
+          :live="live"
           :api="api"
           @refresh="refreshActivity"
           @clear="clearActivity"

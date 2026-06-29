@@ -1445,6 +1445,13 @@ select.ar-input {
 .ar-dash-tile__v[data-tone="low"] { color: var(--ar-bad); }
 .ar-dash-tile__sub { font-size: 11px; color: var(--ar-ink-soft); }
 .ar-act-controls { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
+/* Passive "auto-refresh is on" marker — steady (no motion), mirrors the bell pill's green dot. */
+.ar-act-live {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--ar-mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.07em; text-transform: uppercase; color: var(--ar-good);
+}
+.ar-act-live__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ar-good); flex: 0 0 auto; }
 .ar-act-stats { margin-top: 4px; }
 /* Each stat strip fills its row with a fixed column count matching its number of
    totals — never the generic .ar-wd-stats auto-fit, which orphaned a lone cell
