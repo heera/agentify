@@ -370,16 +370,18 @@ export default {
       <section class="ar-card">
         <div class="ar-card__head">
           <div>
-            <h2 class="ar-card__title">Endpoint activity</h2>
+            <div class="ar-act-titlerow">
+              <h2 class="ar-card__title">Endpoint activity</h2>
+              <span v-if="live" class="ar-act-live" title="Auto-refresh is on — these stats update on their own. Refresh forces an update now.">
+                <span class="ar-act-live__dot" aria-hidden="true"></span>Auto-refresh
+              </span>
+            </div>
             <p class="ar-card__lead">
               Who fetched your discovery &amp; llms endpoints — AI agents, crawlers and browsers.
               Local-only, no IP logged. Records are kept for the last {{ data.window || 30 }} days, then removed.
             </p>
           </div>
           <div class="ar-act-controls">
-            <span v-if="live" class="ar-act-live" title="Auto-refresh is on — these stats update on their own. Refresh forces an update now.">
-              <span class="ar-act-live__dot" aria-hidden="true"></span>Auto-updating
-            </span>
             <button type="button" class="ar-btn ar-btn--ghost" :disabled="refreshing" @click="$emit('refresh')">
               {{ refreshing ? 'Refreshing…' : 'Refresh' }}
             </button>
