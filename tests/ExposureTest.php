@@ -26,27 +26,36 @@ final class ExposureTest extends TestCase {
 
 	/* -- Settings: opt-in, OFF by default, boolean-clean ----------------- */
 
+	/** Every Exposure control ships OFF. */
 	public function test_exposure_controls_default_off() {
 		$d = ( new Settings() )->defaults();
-		$this->assertFalse( $d['hide_user_enumeration'] );
-		$this->assertFalse( $d['hide_wp_version'] );
-		$this->assertFalse( $d['disable_xmlrpc'] );
+		foreach ( array( 'hide_user_enumeration', 'disable_author_archives', 'hide_wp_version', 'tidy_head_links', 'disable_xmlrpc' ) as $key ) {
+			$this->assertFalse( $d[ $key ], $key );
+		}
 	}
 
 	public function test_sanitize_keeps_them_boolean() {
 		$clean = ( new Settings() )->sanitize(
-			array( 'hide_user_enumeration' => '1', 'hide_wp_version' => 0, 'disable_xmlrpc' => true )
+			array(
+				'hide_user_enumeration'   => '1',
+				'disable_author_archives' => true,
+				'hide_wp_version'         => 0,
+				'tidy_head_links'         => '1',
+				'disable_xmlrpc'          => true,
+			)
 		);
 		$this->assertTrue( $clean['hide_user_enumeration'] );
+		$this->assertTrue( $clean['disable_author_archives'] );
 		$this->assertFalse( $clean['hide_wp_version'] );
+		$this->assertTrue( $clean['tidy_head_links'] );
 		$this->assertTrue( $clean['disable_xmlrpc'] );
 	}
 
 	public function test_sanitize_absent_keys_fall_to_off() {
 		$clean = ( new Settings() )->sanitize( array() );
-		$this->assertFalse( $clean['hide_user_enumeration'] );
-		$this->assertFalse( $clean['hide_wp_version'] );
-		$this->assertFalse( $clean['disable_xmlrpc'] );
+		foreach ( array( 'hide_user_enumeration', 'disable_author_archives', 'hide_wp_version', 'tidy_head_links', 'disable_xmlrpc' ) as $key ) {
+			$this->assertFalse( $clean[ $key ], $key );
+		}
 	}
 
 	/* -- User enumeration ------------------------------------------------ */

@@ -158,9 +158,19 @@ export default {
           hint: 'Stops anonymous visitors from listing your usernames — closes the author list at /wp-json/wp/v2/users, the ?author=1 trick, the users sitemap and the oEmbed author. Your admin and the editor are unaffected.',
         },
         {
+          key: 'disable_author_archives',
+          label: 'Disable author archive pages',
+          hint: 'Turns your author pages (yoursite.com/author/…) into “not found” for visitors. Useful when authors aren’t a feature of your site — it removes one more place a username can show up.',
+        },
+        {
           key: 'hide_wp_version',
           label: 'Hide your WordPress version',
           hint: 'Removes the WordPress version number from your pages and feed (the “generator” tag) and from core file links, so it’s not handed to vulnerability scanners.',
+        },
+        {
+          key: 'tidy_head_links',
+          label: 'Tidy page-head links',
+          hint: 'Removes a few rarely-used auto-generated links from your pages’ source code (the short-link and oEmbed embed links), trimming the technical footprint bots scrape. No effect on how your pages look or rank.',
         },
         {
           key: 'disable_xmlrpc',

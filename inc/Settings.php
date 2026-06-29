@@ -87,9 +87,11 @@ final class Settings {
 			// scanner) can read about the site. All opt-in / OFF by default: each one
 			// changes a stock WordPress behaviour, so it ships only when the owner asks,
 			// and is scoped to logged-out requests (admins/the editor are unaffected).
-			'hide_user_enumeration' => false, // Block anonymous author/user enumeration: wp/v2/users, ?author=N, the core users-sitemap, and the oEmbed author fields.
-			'hide_wp_version'       => false, // Remove the WordPress version fingerprint: the <meta generator> tag, the feed generator, and the core ?ver= on core assets.
-			'disable_xmlrpc'        => false, // Disable legacy XML-RPC (xmlrpc.php) — the pingback / system.multicall brute-force-amplification + DDoS surface. Modern clients use the REST API.
+			'hide_user_enumeration'   => false, // Block anonymous author/user enumeration: wp/v2/users, ?author=N, the core users-sitemap, and the oEmbed author fields.
+			'disable_author_archives' => false, // Turn /author/* archive pages into 404s for anonymous visitors (also catches ?author=N) — removes another surface that carries the username slug.
+			'hide_wp_version'         => false, // Remove the WordPress version fingerprint: the <meta generator> tag, the feed generator, and the core ?ver= on core assets.
+			'tidy_head_links'         => false, // Strip rarely-used auto-generated discovery links (shortlink, oEmbed discovery, RSD/WLW) from the page head + Link header — trims the scrapeable footprint. Keeps the REST api.w.org link (intentional discovery).
+			'disable_xmlrpc'          => false, // Disable legacy XML-RPC (xmlrpc.php) — the pingback / system.multicall brute-force-amplification + DDoS surface. Modern clients use the REST API.
 		);
 
 		/**
@@ -377,7 +379,7 @@ final class Settings {
 		$defaults = $this->defaults();
 		$clean    = array();
 
-		foreach ( array( 'enable_llms_txt', 'enable_llms_full', 'enable_markdown', 'enable_robots', 'enable_schema', 'enable_activity', 'enable_sitemap', 'enable_security_txt', 'enable_signing', 'hide_user_enumeration', 'hide_wp_version', 'disable_xmlrpc' ) as $flag ) {
+		foreach ( array( 'enable_llms_txt', 'enable_llms_full', 'enable_markdown', 'enable_robots', 'enable_schema', 'enable_activity', 'enable_sitemap', 'enable_security_txt', 'enable_signing', 'hide_user_enumeration', 'disable_author_archives', 'hide_wp_version', 'tidy_head_links', 'disable_xmlrpc' ) as $flag ) {
 			$clean[ $flag ] = ! empty( $input[ $flag ] );
 		}
 

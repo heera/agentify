@@ -45,11 +45,26 @@ final class Exposure {
 			add_action( 'template_redirect', array( $this, 'block_enumeration' ), 0 );
 		}
 
+		if ( $this->settings->enabled( 'disable_author_archives' ) ) {
+			add_action( 'template_redirect', array( $this, 'block_author_archive' ), 0 );
+		}
+
 		if ( $this->settings->enabled( 'hide_wp_version' ) ) {
 			remove_action( 'wp_head', 'wp_generator' );
 			add_filter( 'the_generator', '__return_empty_string' );
 			add_filter( 'style_loader_src', array( $this, 'filter_core_version' ) );
 			add_filter( 'script_loader_src', array( $this, 'filter_core_version' ) );
+		}
+
+		if ( $this->settings->enabled( 'tidy_head_links' ) ) {
+			// Rarely-used auto-generated discovery links — drop from the head AND the
+			// Link header. The REST api.w.org link and Agentimus's own discovery links
+			// are intentional and deliberately kept.
+			remove_action( 'wp_head', 'wp_shortlink_wp_head' );
+			remove_action( 'wp_head', 'wp_oembed_add_discovery_links' );
+			remove_action( 'wp_head', 'rsd_link' );
+			remove_action( 'wp_head', 'wlwmanifest_link' );
+			remove_action( 'template_redirect', 'wp_shortlink_header', 11 );
 		}
 
 		if ( $this->settings->enabled( 'disable_xmlrpc' ) ) {
@@ -100,6 +115,18 @@ final class Exposure {
 		}
 		$author = isset( $_GET['author'] ) ? wp_unslash( $_GET['author'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only public request gate, no state change.
 		if ( self::is_author_enumeration( $author ) || 'users' === get_query_var( 'sitemap' ) ) {
+			$this->send_404();
+		}
+	}
+
+	/**
+	 * template_redirect: 404 every author archive (/author/<slug>/ and, before its
+	 * canonical redirect fires, ?author=<n>) for anonymous visitors — for sites where
+	 * author pages aren't a feature and just expose the username slug. Independent of
+	 * hide_user_enumeration; enabling both is harmless (the 404 is idempotent).
+	 */
+	public function block_author_archive() {
+		if ( ! is_user_logged_in() && is_author() ) {
 			$this->send_404();
 		}
 	}
