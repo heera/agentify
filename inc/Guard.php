@@ -243,6 +243,26 @@ final class Guard {
 	}
 
 	/**
+	 * The built-in always-allowed search engines, in display casing. These are
+	 * matched structurally by engine_signatures() and can't be removed via the
+	 * owner's list — this is the human-readable companion the admin UI shows so the
+	 * owner knows exactly what is trusted automatically. Single source of truth:
+	 * protected_agents() lowercases it, so the two never drift.
+	 *
+	 * @return string[]
+	 */
+	public static function default_allowed() {
+		$engines = array( 'Googlebot', 'Bingbot', 'DuckDuckBot', 'Applebot', 'Yandex' );
+		/**
+		 * Filter the built-in always-allowed engine NAMES shown in the admin (display
+		 * only — the actual matcher is engine_signatures(); keep the two in step).
+		 *
+		 * @param string[] $engines Display-cased engine names.
+		 */
+		return array_values( array_filter( (array) apply_filters( 'agentimus_default_allowed', $engines ) ) );
+	}
+
+	/**
 	 * The always-allow agents, for display/inspection: the built-in search-engine
 	 * NAMES plus the owner's allow-list. NOTE matching uses engine_signatures()
 	 * (structured) + allow_substrings(), not this loose list — see is_protected().
@@ -250,7 +270,7 @@ final class Guard {
 	 * @return string[]
 	 */
 	public static function protected_agents() {
-		$engines = array( 'googlebot', 'bingbot', 'duckduckbot', 'applebot', 'yandex' );
+		$engines = array_map( 'strtolower', self::default_allowed() );
 		return array_values( array_unique( array_merge( $engines, self::allow_substrings() ) ) );
 	}
 

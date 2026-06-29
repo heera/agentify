@@ -899,6 +899,29 @@ select.ar-input {
 }
 .ar-suggest__chip:hover { border-style: solid; border-color: var(--ar-accent); color: var(--ar-accent); background: #eef5f3; }
 
+/* Read-only enumeration of the built-in always-allowed search engines: present
+   in the trust set but not editable, so they render as static muted chips —
+   distinct from the dark editable chips and the dashed suggestion chips. A top
+   divider sets the whole (label + chips + note) apart as one "automatic" group. */
+.ar-builtin {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--ar-line);
+}
+.ar-builtin__label {
+  font-family: var(--ar-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ar-ink-faint); margin-right: 2px;
+}
+.ar-builtin__chip {
+  font-family: var(--ar-mono); font-size: 12px;
+  padding: 3px 9px; border-radius: 3px;
+  background: var(--ar-surface); color: var(--ar-ink-soft);
+  border: 1px solid var(--ar-line);
+}
+.ar-builtin__note {
+  flex-basis: 100%; margin-top: 8px;
+  color: var(--ar-ink-soft); font-size: 12px; line-height: 1.5;
+}
+
 .ar-linkbtn {
   appearance: none; background: none; border: 0; padding: 0; margin-left: 4px; cursor: pointer;
   font: inherit; color: var(--ar-accent); text-decoration: underline;

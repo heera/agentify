@@ -166,6 +166,44 @@ final class Settings {
 	}
 
 	/**
+	 * Suggested user-agents for the always-allow trust-list: well-known AI agents
+	 * that read or answer on a user's behalf (assistants and answer engines).
+	 * Powers the "add a trusted AI agent" chips under the allow-list — purely
+	 * suggestions; nothing is trusted until the owner adds it. The built-in search
+	 * engines (Googlebot, Bingbot, …) are NOT here: they are always allowed
+	 * structurally by Guard::engine_signatures(), so listing them would be noise.
+	 *
+	 * Deliberately EXCLUDES training crawlers (GPTBot, ClaudeBot, CCBot,
+	 * Google-Extended, Bytespider, Amazonbot, meta-externalagent) — those belong to
+	 * the training opt-out (blocked_trainers / the ai-train signal), not the trust
+	 * list, and allow-listing a crawler you may be reserving against would
+	 * contradict that choice.
+	 *
+	 * @return string[]
+	 */
+	public static function known_allowed() {
+		$known = array(
+			'ChatGPT-User',         // OpenAI — fetches a page when a ChatGPT user asks about it.
+			'OAI-SearchBot',        // OpenAI — powers ChatGPT search citations.
+			'Claude-User',          // Anthropic — Claude fetching on a user's behalf.
+			'Claude-SearchBot',     // Anthropic — Claude search.
+			'PerplexityBot',        // Perplexity — answer-engine index.
+			'Perplexity-User',      // Perplexity — on-demand user fetch.
+			'DuckAssistBot',        // DuckDuckGo — AI-assist answers.
+			'MistralAI-User',       // Mistral — Le Chat on-demand fetch.
+			'Meta-ExternalFetcher', // Meta — on-demand fetch (not the meta-externalagent trainer).
+		);
+
+		/**
+		 * Filter the suggested always-allow catalogue shown in the admin trust-list UI.
+		 *
+		 * @param string[] $known User-agent tokens.
+		 */
+		$known = (array) apply_filters( 'agentimus_known_allowed', $known );
+		return array_values( array_unique( array_filter( array_map( 'trim', $known ) ) ) );
+	}
+
+	/**
 	 * The privacy-safe default content selection: posts and pages only. Every
 	 * other public post type (WooCommerce products, CRM/support/forms/boards
 	 * CPTs, …) is opt-IN, so a fresh install never advertises or dumps content

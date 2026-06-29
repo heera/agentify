@@ -10,6 +10,8 @@ export default {
     postTypes: { type: Array, default: () => [] },
     knownTrainers: { type: Array, default: () => [] },
     knownScanners: { type: Array, default: () => [] },
+    knownAllowed: { type: Array, default: () => [] },
+    defaultAllowed: { type: Array, default: () => [] },
     webmcpTools: { type: Array, default: () => [] },
     endpoints: { type: Object, default: () => ({}) },
     restNamespacesDetected: { type: Array, default: () => [] },
@@ -265,6 +267,13 @@ export default {
       const current = this.settings.blocked_agents || [];
       return this.knownScanners.filter((s) => !current.includes(s));
     },
+    allowSuggestions() {
+      const current = this.settings.allowed_agents || [];
+      // Hide a suggestion once its token is already trusted — case-insensitively,
+      // since the allow-list matches as a lowercase substring server-side.
+      const have = current.map((a) => String(a).toLowerCase());
+      return this.knownAllowed.filter((a) => !have.includes(String(a).toLowerCase()));
+    },
     riskyBlockedAgents() {
       // Flag entries broad enough to catch legitimate traffic, so the admin gets a
       // heads-up. (Search engines are always allowed by the server regardless; this
@@ -452,6 +461,10 @@ export default {
     addScanner(name) {
       if (!Array.isArray(this.settings.blocked_agents)) this.settings.blocked_agents = [];
       if (!this.settings.blocked_agents.includes(name)) this.settings.blocked_agents.push(name);
+    },
+    addAllow(name) {
+      if (!Array.isArray(this.settings.allowed_agents)) this.settings.allowed_agents = [];
+      if (!this.settings.allowed_agents.includes(name)) this.settings.allowed_agents.push(name);
     },
     isTypeOn(slug) {
       return Array.isArray(this.settings.post_types) && this.settings.post_types.includes(slug);
@@ -1052,13 +1065,36 @@ export default {
           </p>
         </div>
 
-        <div v-if="(settings.allowed_agents || []).length" class="ar-field ar-field--allow">
+        <div class="ar-field ar-field--allow">
           <label>Always allowed <span class="ar-field__tag">trusted</span></label>
           <TagInput v-model="settings.allowed_agents" placeholder="Add a user-agent to trust" />
-          <small class="ar-field__hint">
-            Clients you marked <strong>Allow</strong> in the review list — never blocked and never flagged
-            again (the same treatment as Googlebot). Remove one to start flagging it again.
+          <small v-if="(settings.allowed_agents || []).length" class="ar-field__hint">
+            Clients you marked <strong>Allow</strong> in the review list land here — never blocked and never
+            flagged again (the same treatment as Googlebot). Remove one to start flagging it again.
           </small>
+          <small v-else class="ar-field__hint">
+            Add a user-agent here to always trust it — never blocked and never flagged, the same treatment
+            as Googlebot. Clients you mark <strong>Allow</strong> in the review list also land here.
+          </small>
+
+          <div v-if="allowSuggestions.length" class="ar-suggest">
+            <span class="ar-suggest__label">Add a trusted AI agent</span>
+            <button
+              v-for="a in allowSuggestions"
+              :key="a"
+              type="button"
+              class="ar-suggest__chip"
+              @click="addAllow(a)"
+            >+ {{ a }}</button>
+          </div>
+
+          <div v-if="defaultAllowed.length" class="ar-builtin">
+            <span class="ar-builtin__label">Built in · always allowed</span>
+            <span v-for="d in defaultAllowed" :key="d" class="ar-builtin__chip">{{ d }}</span>
+            <small class="ar-builtin__note">
+              Recognised by signature and trusted automatically — you don't need to add them.
+            </small>
+          </div>
         </div>
       </section>
     </div>

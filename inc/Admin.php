@@ -364,6 +364,8 @@ final class Admin {
 			'postTypes'     => $this->available_post_types(),
 			'knownTrainers' => Settings::known_trainers(),
 			'knownScanners' => Settings::known_scanners(),
+			'knownAllowed'  => Settings::known_allowed(),
+			'defaultAllowed' => Guard::default_allowed(),
 			'endpoints'   => array(
 				'llms'     => home_url( '/llms.txt' ),
 				'llmsFull' => home_url( '/llms-full.txt' ),

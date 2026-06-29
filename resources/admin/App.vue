@@ -54,6 +54,8 @@ export default {
       postTypes: this.boot.postTypes || [],
       knownTrainers: this.boot.knownTrainers || [],
       knownScanners: this.boot.knownScanners || [],
+      knownAllowed: this.boot.knownAllowed || [],
+      defaultAllowed: this.boot.defaultAllowed || [],
       webmcpTools: this.boot.webmcpTools || [],
       restNamespacesDetected: this.boot.restNamespacesDetected || [],
       endpoints: this.boot.endpoints || {},
@@ -805,6 +807,8 @@ export default {
           :post-types="postTypes"
           :known-trainers="knownTrainers"
           :known-scanners="knownScanners"
+          :known-allowed="knownAllowed"
+          :default-allowed="defaultAllowed"
           :webmcp-tools="webmcpTools"
           :endpoints="endpoints"
           :rest-namespaces-detected="restNamespacesDetected"
