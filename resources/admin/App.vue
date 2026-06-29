@@ -123,7 +123,7 @@ export default {
         enable_markdown: s.enable_markdown, enable_robots: s.enable_robots,
         enable_schema: s.enable_schema, enable_activity: s.enable_activity,
         enable_sitemap: s.enable_sitemap, enable_security_txt: s.enable_security_txt,
-        enable_signing: s.enable_signing,
+        enable_signing: s.enable_signing, enable_webmcp: s.enable_webmcp,
         llms_full_posts: s.llms_full_posts, post_types: s.post_types,
         rest_namespaces: s.rest_namespaces, oauth_auth_server: s.oauth_auth_server, content_signal: s.content_signal,
         blocked_trainers: s.blocked_trainers, suppressed_resources: s.suppressed_resources,
