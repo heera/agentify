@@ -6,6 +6,7 @@ export default {
   components: { TagInput },
   props: {
     settings: { type: Object, required: true },
+    busy: { type: Boolean, default: false },
     entityTypes: { type: Array, default: () => ['Person', 'Organization', 'LocalBusiness', 'Store'] },
     postTypes: { type: Array, default: () => [] },
     knownTrainers: { type: Array, default: () => [] },
@@ -142,7 +143,7 @@ export default {
       return [
         { key: 'enable_llms_txt', label: 'AI page guide', hint: 'A plain map of your pages, topics and recent posts for assistants. (file: llms.txt)' },
         { key: 'enable_llms_full', label: 'Full text for AI', hint: 'Bundles your pages and recent posts into one document an assistant can read in a single pass. (file: llms-full.txt)' },
-        { key: 'enable_markdown', label: 'Plain-text versions', hint: 'Lets assistants fetch a clean text version of any page — add .md to its URL.' },
+        { key: 'enable_markdown', label: 'Plain-text versions', hint: 'Lets assistants fetch a clean text version of any included page — add .md to its URL.' },
         { key: 'enable_robots', label: 'Crawler rules', hint: 'States your preferences to crawlers and blocks known AI-training bots by name. (file: robots.txt)' },
         { key: 'enable_schema', label: 'Rich data for search', hint: 'Adds structured data search engines and assistants understand (JSON-LD). Leave off if your SEO plugin already does this.' },
         { key: 'enable_activity', label: 'Visit log', hint: 'Records which AI assistants fetch your AI files, and counts visitors AI sends you. Local-only, no IP addresses.' },
@@ -323,6 +324,38 @@ export default {
   methods: {
     isUrl(value) {
       return /^https?:\/\//i.test(value);
+    },
+    // Splits a feature hint into segments so the well-known standards it names
+    // (llms.txt, robots.txt, JSON-LD, …) render as outgoing links to the spec that
+    // defines each one — the standard describing the file's purpose, NOT the live
+    // file on this site. Returns [{ text } | { term, href }] for the template to
+    // render; longest terms are matched first so "llms-full.txt" wins over
+    // "llms.txt". Scoped to these curated terms, so unrelated text stays plain.
+    specHintParts(hint) {
+      const specs = [
+        ['llms-full.txt', 'https://llmstxt.org/'],
+        ['llms.txt', 'https://llmstxt.org/'],
+        ['robots.txt', 'https://www.rfc-editor.org/rfc/rfc9309'],
+        ['JSON-LD', 'https://json-ld.org/'],
+        ['sitemap', 'https://www.sitemaps.org/'],
+        ['.md', 'https://commonmark.org/'],
+      ];
+      const href = {};
+      specs.forEach(([t, h]) => { href[t.toLowerCase()] = h; });
+      const pattern = specs
+        .map(([t]) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|');
+      const re = new RegExp('(' + pattern + ')', 'gi');
+      const parts = [];
+      let last = 0;
+      let m;
+      while ((m = re.exec(hint)) !== null) {
+        if (m.index > last) parts.push({ text: hint.slice(last, m.index) });
+        parts.push({ term: m[0], href: href[m[0].toLowerCase()] });
+        last = m.index + m[0].length;
+      }
+      if (last < hint.length) parts.push({ text: hint.slice(last) });
+      return parts;
     },
     // A deep-link (from Readiness / Dashboard) may target a field that lives in a
     // group other than the one on screen. That group is display:none, so the
@@ -529,7 +562,7 @@ export default {
       </nav>
       <p class="ar-tabpanel__caption">{{ activeGroupHint }}</p>
 
-      <div class="ar-tabpanel__body">
+      <div class="ar-tabpanel__body" :aria-busy="busy">
     <!-- ============================================================ -->
     <!-- DISCOVERY — files & data AI can read                         -->
     <!-- ============================================================ -->
@@ -544,7 +577,7 @@ export default {
           <span class="ar-toggle__track" aria-hidden="true"></span>
           <span class="ar-toggle__text">
             <strong>{{ f.label }}</strong>
-            <small>{{ f.hint }}</small>
+            <small><template v-for="(p, i) in specHintParts(f.hint)" :key="i"><a v-if="p.href" :href="p.href" class="ar-spec-link" target="_blank" rel="noopener noreferrer">{{ p.term }}</a><template v-else>{{ p.text }}</template></template></small>
           </span>
         </label>
 

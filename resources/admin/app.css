@@ -353,11 +353,16 @@
 /* ---- Toast (teleported to <body>, so no UI shift & viewport-fixed) ------- */
 /* Self-contained: it lives outside #agentimus-app, so it can't rely on the CSS
    variables defined there — radius/font are hardcoded. */
+/* Fixed top-right stack: toasts pile downward, newest at the bottom, each on its
+   own dismiss timer. (top: 36px tucks into the nav-bar band below the wp-admin bar;
+   right: 34px aligns with the content's right edge.) */
+.ar-toasts {
+  position: fixed; top: 36px; right: 34px; z-index: 100000;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  pointer-events: none;
+}
 .ar-toast {
-  position: fixed;
-  top: 36px;   /* tucked into the nav-bar band, just below the wp-admin bar */
-  right: 34px; /* aligns with the content's right edge (.ar__body padding) */
-  z-index: 100000;
+  pointer-events: auto;
   display: flex;
   align-items: stretch;
   min-width: 268px;
@@ -382,12 +387,14 @@
 .ar-toast.is-warning .ar-toast__bar { background: #d99a1c; }
 .ar-toast.is-warning .ar-toast__title { color: #936713; }
 
-/* Slide in from the right (right-to-left), out to the right. */
+/* Slide in from the right (right-to-left), out to the right. The leaving toast is
+   taken out of flow so the survivors slide up smoothly via the move transition. */
 .ar-toast-enter-active { transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
-.ar-toast-leave-active { transition: opacity 0.25s ease, transform 0.3s ease; }
+.ar-toast-leave-active { transition: opacity 0.25s ease, transform 0.3s ease; position: absolute; right: 0; }
+.ar-toast-move { transition: transform 0.3s ease; }
 .ar-toast-enter-from, .ar-toast-leave-to { opacity: 0; transform: translateX(calc(100% + 24px)); }
 @media (prefers-reduced-motion: reduce) {
-  .ar-toast-enter-active, .ar-toast-leave-active { transition: opacity 0.2s; }
+  .ar-toast-enter-active, .ar-toast-leave-active, .ar-toast-move { transition: opacity 0.2s; }
   .ar-toast-enter-from, .ar-toast-leave-to { transform: none; }
 }
 
@@ -477,42 +484,6 @@
 .ar-rail-card--validation.is-bad .ar-rail-valid__alert { color: var(--ar-bad); }
 .ar-rail-card--validation .ar-rail-valid__alert:hover { color: var(--ar-ink-soft); }
 
-/* Save block — bottom of the rail; full-width black button. */
-/* Autosave status — a centred pill that only appears while saving / just saved /
-   on error (the idle state renders nothing, so there's no standing "Auto-save on"). */
-/* Pinned bottom-right so the save state is ALWAYS fully visible — it used to sit
-   at the foot of the sticky rail, which is clipped when the rail is taller than
-   the viewport. Floats over content, so it needs an opaque base + soft shadow. */
-.ar-rail-save {
-  position: fixed; right: 22px; bottom: 22px; z-index: 9000;
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 5px 13px; border-radius: 999px;
-  border: 1px solid var(--ar-line);
-  background: var(--ar-paper);
-  box-shadow: 0 4px 14px rgba(31, 41, 51, 0.12);
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-.ar-rail-save__dot {
-  width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto;
-  background: var(--ar-line-strong); transition: background 0.15s ease;
-}
-.ar-rail-save__label {
-  font-family: var(--ar-mono); font-size: 11px; letter-spacing: 0.04em;
-  color: var(--ar-ink-faint); font-weight: 600;
-}
-/* Saving — the prominent, eye-catching state, with a gentle activity pulse that
-   runs only while a save is in flight, then settles into "Saved". */
-.ar-rail-save.is-saving { background: #e7f1ef; border-color: rgba(20, 107, 100, 0.32); }
-.ar-rail-save.is-saving .ar-rail-save__dot { background: var(--ar-accent); animation: ar-save-pulse 1s ease-in-out infinite; }
-.ar-rail-save.is-saving .ar-rail-save__label { color: var(--ar-accent); font-size: 12px; }
-.ar-rail-save.is-saved { background: #e9f5ee; border-color: rgba(47, 158, 94, 0.30); }
-.ar-rail-save.is-saved .ar-rail-save__dot { background: #2f9e5e; }
-.ar-rail-save.is-saved .ar-rail-save__label { color: #2f9e5e; }
-.ar-rail-save.is-error { background: #f7f0df; border-color: rgba(173, 123, 24, 0.34); }
-.ar-rail-save.is-error .ar-rail-save__dot { background: var(--ar-warn); }
-.ar-rail-save.is-error .ar-rail-save__label { color: var(--ar-warn); }
-@keyframes ar-save-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-@media (prefers-reduced-motion: reduce) { .ar-rail-save.is-saving .ar-rail-save__dot { animation: none; } }
 .ar-btn--block { width: 100%; }
 /* Stack the rail below the form when the panel gets narrow (sidebar-aware), so
    the Save block at its foot stays reachable. The rail keeps the endpoints, so
@@ -702,6 +673,27 @@
 }
 
 /* Slim section description, a band under the tabs. */
+.ar-tabpanel__body { min-width: 0; }
+/* Per-control save lock: only the switch/card the user just changed carries
+   [data-busy] while ITS save is in flight — it dims and ignores further clicks,
+   exactly like a button mid-action, while every other control stays live. We
+   deliberately do NOT set a native [disabled] on the inputs: wp-admin's forms.css
+   repaints a disabled checkbox as a bordered box (its :disabled rule out-specifies
+   our hide), which leaked a stray border onto every switch.
+   pointer-events must sit on the whole LABEL, not just the input: clicking a
+   label-wrapped checkbox toggles it via label activation even when the input
+   itself is pointer-events:none, so the card would still flip (and show its tick)
+   while looking disabled. Locking the label blocks the click outright.
+   Marked via a data-attribute, not a class: a `.ar-type` card carries a Vue
+   `:class` (is-on) that Vue rewrites on the same change that starts the save, which
+   would wipe a manually-added class — Vue leaves unknown attributes alone. */
+.ar-toggle[data-busy],
+.ar-type[data-busy] {
+  cursor: default;
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
 .ar-tabpanel__caption {
   margin: 0; padding: 11px 26px; font-size: 12.5px; color: var(--ar-ink-soft);
   border-bottom: 1px solid var(--ar-line);
@@ -758,6 +750,17 @@
 .ar-toggle__text { display: flex; flex-direction: column; gap: 1px; }
 .ar-toggle__text strong { font-size: 14px; font-weight: 600; }
 .ar-toggle__text small { color: var(--ar-ink-soft); font-size: 12px; }
+/* In-hint links to the standard each file/format implements (llms.txt, robots.txt,
+   JSON-LD …). Kept subtle — accent + underline — so the hint still reads as a hint;
+   no external-arrow glyph, which reads awkwardly on a term mid-sentence. */
+.ar-spec-link {
+  color: var(--ar-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.ar-spec-link:hover { text-decoration-thickness: 2px; }
+.ar-spec-link:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; border-radius: 2px; }
 
 /* Provider-integration row: a metadata line (type · plugin · capabilities). */
 .ar-prov-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 2px; }
@@ -982,8 +985,11 @@ select.ar-input {
   content: "✓"; position: absolute; top: 8px; right: 11px;
   font-size: 11px; line-height: 1; font-weight: 700; color: var(--ar-accent);
 }
-/* The real <input> is visually hidden, so ring the whole card on keyboard focus. */
-.ar-type:focus-within { border-color: var(--ar-accent); outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+/* The real <input> is visually hidden, so ring the whole card on KEYBOARD focus
+   only. Using :has(:focus-visible) (not :focus-within) is deliberate: after a
+   mouse click the checkbox keeps DOM focus, and :focus-within would leave the
+   accent ring on a card the click just DESELECTED — making it look still-on. */
+.ar-type:has(:focus-visible) { border-color: var(--ar-accent); outline: 2px solid var(--ar-accent); outline-offset: 2px; }
 
 .ar-type__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ar-type__label {

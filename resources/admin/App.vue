@@ -72,8 +72,8 @@ export default {
       profileSaved: false,
       servicesSaving: false,
       servicesSaved: false,
-      autoStatus: 'idle',
-      notice: null,
+      savingSettings: false,
+      notices: [],
       ringReady: false,
       savedSnapshot: JSON.stringify(this.boot.settings || {}),
     };
@@ -241,9 +241,6 @@ export default {
       const tone = notices.some((n) => n.level === 'error') ? 'bad' : 'warn';
       return { ok: false, tone, count: notices.length };
     },
-    noticeTitle() {
-      return { success: 'Success', error: 'Error', warning: 'Warning' }[this.notice?.type] || 'Notice';
-    },
   },
   watch: {
     tab(val) {
@@ -273,6 +270,15 @@ export default {
       window.history.replaceState(null, '', `#${this.tab}`);
     }
     window.addEventListener('hashchange', this.syncTabFromHash);
+    // Record the exact switch/card the user just changed so the save lock can scope
+    // to it. We read it from the change event's target (capture phase) rather than
+    // document.activeElement: a card's hidden checkbox doesn't reliably become the
+    // focused element on click, so focus alone misses cards.
+    this._onControlChange = (e) => {
+      const c = (e.target && e.target.closest) ? e.target.closest('.ar-toggle, .ar-type') : null;
+      if (c) this._lastChanged = c;
+    };
+    document.addEventListener('change', this._onControlChange, true);
     // Load activity eagerly (not only on the Dashboard): the nav "to review"
     // badge needs the threat data on every tab.
     this.refreshActivity();
@@ -285,6 +291,7 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener('hashchange', this.syncTabFromHash);
+    document.removeEventListener('change', this._onControlChange, true);
     this.stopActivityPolling();
   },
   methods: {
@@ -410,7 +417,6 @@ export default {
         this.$nextTick(() => { this._skipAutosave = false; });
         this.savedSnapshot = JSON.stringify(res.settings || {});
         this.readiness = res.readiness || this.readiness;
-        this.autoStatus = 'idle';
         this.flash('success', 'Settings restored to defaults.');
       } catch (e) {
         this.flash('error', e.message);
@@ -477,26 +483,66 @@ export default {
       this.wizardCelebrate = false; // a review never shows the first-run celebration
       this.showWizard = true;
     },
-    // Debounced autosave for toggles / selections / chips.
+    // Autosave for toggles / selections / chips. A discrete control (a toggle or
+    // card — the active element is not a text field) locks the form immediately so
+    // it behaves like a button mid-action; a text field stays editable and just
+    // debounces, so typing is never interrupted.
     queueAutosave() {
+      const ae = (typeof document !== 'undefined') ? document.activeElement : null;
+      const typing = !!(ae && ae.matches && ae.matches('input[type="text"], input[type="url"], input[type="number"], input[type="search"], textarea'));
+      if (!typing) this.beginBusy(); // lock now for a toggle/card click
       clearTimeout(this._autoTimer);
-      this._autoTimer = setTimeout(() => this.autosaveInstant(), 600);
+      this._autoTimer = setTimeout(() => this.autosaveInstant(), typing ? 500 : 60);
+    },
+    // The busy lock scopes to the single switch/card the user just changed (not
+    // the whole panel): we tag that control with `.is-busy` so it dims and ignores
+    // clicks like a button mid-action, while its neighbours stay live. A floor of
+    // ~360ms keeps a very fast local save from being an imperceptible flicker;
+    // a fresh save before that floor cancels the pending release so the lock never
+    // drops mid-flight.
+    beginBusy() {
+      clearTimeout(this._busyTimer);
+      if (!this.savingSettings) {
+        this.savingSettings = true;
+        this._busyStart = Date.now();
+      }
+      if (!this._busyEls) this._busyEls = [];
+      const ae = (typeof document !== 'undefined') ? document.activeElement : null;
+      const ctrl = this._lastChanged
+        || ((ae && ae.closest) ? ae.closest('.ar-toggle, .ar-type') : null);
+      this._lastChanged = null; // consume it so a later text-field save can't reuse it
+      if (ctrl && this._busyEls.indexOf(ctrl) === -1) {
+        ctrl.setAttribute('data-busy', '');
+        this._busyEls.push(ctrl);
+      }
+    },
+    endBusy() {
+      const elapsed = Date.now() - (this._busyStart || 0);
+      clearTimeout(this._busyTimer);
+      this._busyTimer = setTimeout(() => {
+        this.savingSettings = false;
+        (this._busyEls || []).forEach((el) => el.removeAttribute('data-busy'));
+        this._busyEls = [];
+      }, Math.max(0, 360 - elapsed));
     },
     // Persists everything EXCEPT the in-progress profile text (frozen to its
     // last-saved value), so composing a profile sentence is never saved until the
-    // user clicks Save. Never replaces this.settings (that would wipe the draft).
+    // user clicks Save. On success it never replaces this.settings (that would wipe
+    // the draft); on failure it rolls the autosaved fields back to the last good
+    // state — keeping the identity draft — so a flipped switch returns to where it
+    // was, and surfaces a proper error.
     async autosaveInstant() {
       const savedId = (JSON.parse(this.savedSnapshot).identity) || {};
       const payload = JSON.parse(JSON.stringify(this.settings));
       ['entity_type', 'name', 'role', 'about', 'not_description', 'audience', 'contact_email'].forEach((k) => {
         if (payload.identity) payload.identity[k] = savedId[k];
       });
-      this.autoStatus = 'saving';
+      this.beginBusy(); // lock for the round-trip (covers the text-field path too)
       try {
         const res = await this.api.saveSettings(payload);
         this.savedSnapshot = JSON.stringify(res.settings);
         this.readiness = res.readiness || this.readiness;
-        this.autoStatus = 'saved';
+        this.flash('success', 'Settings saved.', 2500);
         // If the save changed the blocking rules, the dashboard's "blocked" flags
         // are now stale (e.g. a denylist entry was removed) — re-fetch so those
         // rows reappear as actionable without a manual refresh.
@@ -504,8 +550,17 @@ export default {
           this.refreshActivity();
         }
       } catch (e) {
-        this.autoStatus = 'error';
-        this.flash('error', e.message);
+        // Roll the autosaved change back to the last saved state, but keep the
+        // in-progress identity draft (profile text + services save on their own
+        // button, not here) so the failure never discards unsaved typing.
+        const reverted = JSON.parse(this.savedSnapshot);
+        reverted.identity = this.settings.identity;
+        this._skipAutosave = true;
+        this.settings = reverted;
+        this.$nextTick(() => { this._skipAutosave = false; });
+        this.flash('error', (e && e.message) || 'Could not save your changes — your switch was reset.');
+      } finally {
+        this.endBusy();
       }
     },
     async refreshReadiness() {
@@ -703,12 +758,21 @@ export default {
         /* leave the snapshot as-is */
       }
     },
-    flash(type, text) {
-      this.notice = { type, text };
-      window.clearTimeout(this._noticeTimer);
-      this._noticeTimer = window.setTimeout(() => {
-        this.notice = null;
-      }, 4000);
+    // Toast stack: each call adds its own toast (saving, saved, error…) that
+    // stacks top-right and dismisses on its own timer — so a burst of saves shows
+    // a toast each, instead of one notice clobbering the previous.
+    flash(type, text, duration = 4000) {
+      this._noticeSeq = (this._noticeSeq || 0) + 1;
+      const id = this._noticeSeq;
+      this.notices.push({ id, type, text });
+      if (this.notices.length > 4) this.notices.splice(0, this.notices.length - 4);
+      window.setTimeout(() => {
+        const i = this.notices.findIndex((n) => n.id === id);
+        if (i !== -1) this.notices.splice(i, 1);
+      }, duration);
+    },
+    titleFor(type) {
+      return { success: 'Success', error: 'Error', warning: 'Warning' }[type] || 'Notice';
     },
   },
 };
@@ -767,15 +831,15 @@ export default {
     </header>
 
     <Teleport to="body">
-      <transition name="ar-toast">
-        <div v-if="notice" class="ar-toast" :class="`is-${notice.type}`" role="status" aria-live="polite">
+      <transition-group tag="div" name="ar-toast" class="ar-toasts" aria-live="polite">
+        <div v-for="n in notices" :key="n.id" class="ar-toast" :class="`is-${n.type}`" role="status">
           <span class="ar-toast__bar" aria-hidden="true"></span>
           <div class="ar-toast__body">
-            <strong class="ar-toast__title">{{ noticeTitle }}</strong>
-            <span class="ar-toast__msg">{{ notice.text }}</span>
+            <strong class="ar-toast__title">{{ titleFor(n.type) }}</strong>
+            <span v-if="n.text" class="ar-toast__msg">{{ n.text }}</span>
           </div>
         </div>
-      </transition>
+      </transition-group>
     </Teleport>
 
     <!-- One app-wide styled confirmation prompt (replaces window.confirm). -->
@@ -804,6 +868,7 @@ export default {
         <SettingsForm
           v-show="tab === 'settings'"
           ref="settingsForm"
+          :busy="savingSettings"
           v-model:settings="settings"
           :entity-types="entityTypes"
           :post-types="postTypes"
@@ -979,19 +1044,6 @@ export default {
           >
             {{ validation.count }} {{ validation.count === 1 ? 'issue' : 'issues' }} to fix — Review →
           </button>
-        </div>
-
-        <div
-          v-if="tab === 'settings' && autoStatus !== 'idle'"
-          class="ar-rail-save"
-          :class="`is-${autoStatus}`"
-          role="status"
-          aria-live="polite"
-        >
-          <span class="ar-rail-save__dot" aria-hidden="true"></span>
-          <span class="ar-rail-save__label">
-            {{ autoStatus === 'saving' ? 'Saving…' : autoStatus === 'error' ? 'Save failed' : 'Saved' }}
-          </span>
         </div>
 
         <p class="ar-rail-foot" aria-label="Made with love by Sheikh Heera">Made with <span class="ar-rail-foot__heart" aria-hidden="true">♥</span> by <a class="ar-rail-foot__link" href="https://heera.it" target="_blank" rel="noopener">Sheikh Heera</a></p>
