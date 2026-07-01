@@ -65,3 +65,22 @@ add_action(
 
 register_activation_hook( __FILE__, array( __NAMESPACE__ . '\\Plugin', 'activate' ) );
 register_deactivation_hook( __FILE__, array( __NAMESPACE__ . '\\Plugin', 'deactivate' ) );
+
+// Multisite: when a new site is created while Agentimus is network-active, give it
+// the same per-site setup (tables, defaults, prune cron, rewrite rules) at once,
+// rather than waiting for that site's first boot to self-heal.
+add_action(
+	'wp_initialize_site',
+	static function ( $new_site ) {
+		if ( ! function_exists( 'is_plugin_active_for_network' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		if ( ! is_plugin_active_for_network( plugin_basename( __FILE__ ) ) ) {
+			return;
+		}
+		switch_to_blog( (int) $new_site->blog_id );
+		Plugin::install_site();
+		restore_current_blog();
+	},
+	100
+);

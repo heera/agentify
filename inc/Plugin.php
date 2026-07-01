@@ -100,10 +100,41 @@ final class Plugin {
 	}
 
 	/**
-	 * Activation: seed defaults and register the /.well-known rewrite rule before
-	 * flushing, so the discovery endpoints resolve on the very first request.
+	 * Activation entry point. On multisite a network-wide activation fires this
+	 * hook ONCE (with $network_wide true), NOT per site — so we loop the existing
+	 * sites and set each up. A normal single-site activation just sets up the one
+	 * current site.
+	 *
+	 * @param bool $network_wide Whether the plugin is being network-activated.
 	 */
-	public static function activate() {
+	public static function activate( $network_wide = false ) {
+		if ( is_multisite() && $network_wide ) {
+			foreach ( self::network_site_ids() as $site_id ) {
+				switch_to_blog( $site_id );
+				self::activate_site();
+				restore_current_blog();
+			}
+			return;
+		}
+
+		self::activate_site();
+	}
+
+	/**
+	 * Run the per-site setup for a site created AFTER a network-wide activation
+	 * (hooked to wp_initialize_site in the bootstrap). Identical to what every site
+	 * receives at activation time.
+	 */
+	public static function install_site() {
+		self::activate_site();
+	}
+
+	/**
+	 * Per-site setup, run in the context of the current blog: seed defaults and
+	 * register the /.well-known rewrite rule before flushing, so the discovery
+	 * endpoints resolve on the very first request.
+	 */
+	private static function activate_site() {
 		// Detect a truly fresh install BEFORE seeding anything, so the onboarding
 		// wizard shows only for new users — never for an upgrade or a migrant from
 		// the pre-rename "Agent Ready" option.
@@ -221,12 +252,47 @@ final class Plugin {
 
 	/**
 	 * Deactivation: drop generated caches and the rewrite rule (options are kept;
-	 * uninstall removes them).
+	 * uninstall removes them). Network-aware, so a network deactivation clears each
+	 * site's scheduled events and caches rather than only the current one.
+	 *
+	 * @param bool $network_wide Whether the plugin is being network-deactivated.
 	 */
-	public static function deactivate() {
+	public static function deactivate( $network_wide = false ) {
+		if ( is_multisite() && $network_wide ) {
+			foreach ( self::network_site_ids() as $site_id ) {
+				switch_to_blog( $site_id );
+				self::deactivate_site();
+				restore_current_blog();
+			}
+			return;
+		}
+
+		self::deactivate_site();
+	}
+
+	/**
+	 * Per-site deactivation cleanup, run in the context of the current blog.
+	 */
+	private static function deactivate_site() {
 		Cache::flush();
 		Activity\Module::unschedule();
 		wp_clear_scheduled_hook( 'agentimus_warm_llms_full' );
 		flush_rewrite_rules();
+	}
+
+	/**
+	 * Site IDs on the network, capped so a very large network cannot time out the
+	 * activation request. Beyond the cap each site still self-heals on first boot —
+	 * tables via Activity\Module::register(), rewrite rules via maybe_flush_rewrites(),
+	 * and the prune cron via Activity\Module::register() → schedule().
+	 *
+	 * @return int[]
+	 */
+	private static function network_site_ids() {
+		if ( ! is_multisite() ) {
+			return array( get_current_blog_id() );
+		}
+		$sites = get_sites( array( 'fields' => 'ids', 'number' => 500 ) );
+		return array_map( 'intval', (array) $sites );
 	}
 }
